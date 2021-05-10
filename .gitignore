@@ -1,0 +1,12 @@
+*.py~
+*.aux
+*.log
+*.pdf
+*.synctex.gz
+*.DS_Store
+*.toc
+*.out
+*.bbl
+*.run.xml
+*.blg
+*.idea
