@@ -11,7 +11,7 @@
 \usepackage{amssymb}
 \usepackage[onehalfspacing]{setspace}
 \usepackage[left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm]{geometry}
-\usepackage{listings}´
+\usepackage{listings}
 \setlength{\parindent}{0ex}
 \begin{document}
 \begin{multicols}{2}
@@ -24,7 +24,7 @@
 {\Large Softwareentwurf zur Auslese von Peripheriegeräten}
 \end{center}
 \section{Ausgangssituation und Aufgabenstellung}
-Es soll eine Software implementiert werden, welche die von verschiedenen Peripheriegeräten erfassten Daten abfragt, verarbeitet und an eine Netzwerk übergibt. Hier wird nur der konkrete Entwurf einer Software erläutert, welche diese Daten erfasst und versendet. Der gesamte Prozess der Messung dieser Daten, sowie weitere Kommunikation im Netzwerk wird hier nicht betrachtet. Als gegeben anzunehmen sind also Peripheriegeräte und ein Netzwerk, wobei die Verbindung zu beiden nicht als konstant oder fehlerfrei beziehungsweise gegen Abbrüche gesichert angenommen werden kann. Ausfälle der Verbindung zum Netzwerk, sowie zu einzelnen oder mehreren Peripheriegeräten müssen berücksichtigt und behandelt werden.\\
+Es soll eine Software implementiert werden, welche die von verschiedenen Peripheriegeräten erfassten Daten abfragt, verarbeitet und an ein Netzwerk übergibt. Hier wird nur der konkrete Entwurf einer Software erläutert, welche diese Daten erfasst und versendet. Der gesamte Prozess der Messung dieser Daten, sowie weitere Kommunikation im Netzwerk wird hier nicht betrachtet. Als gegeben anzunehmen sind also Peripheriegeräte und ein Netzwerk, wobei die Verbindung zu beiden nicht als konstant oder fehlerfrei beziehungsweise gegen Abbrüche gesichert angenommen werden kann. Ausfälle der Verbindung zum Netzwerk, sowie zu einzelnen oder mehreren Peripheriegeräten müssen berücksichtigt und behandelt werden.\\
 
 Ausgeführt wird die Software auf einem Mikrocontroller, welcher mit WLAN in das zur Verfügung stehende Netzwerk eingebunden ist, genutzt wird die Programmiersprache \textit{Micropython}. Alle Peripheriegeräte die über eine I²C Schnittstelle verfügen werden mit Hilfe dieser an den Mikrocontroller angebunden, welcher hierbei als Master agiert, alle Peripheriegeräte agieren als Slaves. Anders angebundene Peripheriegeräte benötigen je einen Anschluss an den Mikrocontroller, funktionieren aber aus Sicht der Software analog zu den Peripheriegeräten mit I²C Schnittstelle. Alle auszuführenden Aufgaben müssen in der Software auf dem Mikrocontroller enthalten sein, konkret sind die folgenden Aufgaben zu bewerkstelligen:
 \begin{enumerate}
