@@ -8,13 +8,12 @@
 
 from machine import Pin, I2C, SPI
 from umqtt.robust import MQTTClient
-import ubinascii, machine, time
+import ubinascii, machine, time, network
 from mcp3221 import MCP3221
 from scd30 import SCD30
 from bmp180 import BMP180
 from am2301 import AM2301
 from lora import LoRa
-import network
 
 # Setzt die IP-Adresse des MQTT-Servers und die ID der MCU.
 MQTT_SERVER = '192.168.30.17'    
@@ -52,7 +51,7 @@ except:
 try:
     SPI_BUS = SPI(1, baudrate=10000000, sck=Pin(18, Pin.OUT), mosi=Pin(23, Pin.OUT), miso=Pin(19, Pin.IN))
     SPI_BUS.init()
-    lora_sender = LoRa(SPI_BUS, False, cs=Pin(5, Pin.OUT), rx=Pin(2, Pin.IN))
+    lora_sender = LoRa(SPI_BUS, True, cs=Pin(5, Pin.OUT), rx=Pin(2, Pin.IN))
 except:
     FAILED_LORA = 0
 
@@ -239,6 +238,7 @@ time.sleep(10)
 # Verbindung besteht. Wenn davon etwas nicht der Fall ist, so wird versucht die Verbiindung
 # wieder herzustellen bzw. es wird gesendet wenn eine Verbindung besteht.
 while True:
+    a = time.time()
     if FAILED_CONNECTION_O2 == 1 and calibration_finished_test(calibration_timer_o2):
     	try:
     	    o2 = MCP_O2.read_measurement_o2()
@@ -388,38 +388,30 @@ while True:
     	    FAILED_CONNECTION_A4 = 1
 	except:
       	    FAILED_CONNECTION_A4 = 0
-
-    if FAILED_LORA == 1:
-        lora_sender.send(str(co2))
-        lora_sender.send(str(hum))
-        lora_sender.send(str(temp))
-        lora_sender.send(str(co))
-        lora_sender.send(str(o2))
-        lora_sender.send(str(pressure))
-        lora_sender.send(str(tempa1))
-        lora_sender.send(str(huma1))
-        lora_sender.send(str(tempa2))
-        lora_sender.send(str(huma2))
-        lora_sender.send(str(tempa3))
-        lora_sender.send(str(huma3))
-        lora_sender.send(str(tempa4))
-        lora_sender.send(str(huma4))
+    b = time.time()
             
-    if wlan.isconnected() and FAILED_MQTT == 1:
-    	send('board1/co2_scd', str(co2), FAILED_CONNECTION_CO2)
-    	send('board1/humid_scd', str(hum), FAILED_CONNECTION_CO2)
-    	send('board1/temp_scd', str(temp), FAILED_CONNECTION_CO2)
-    	send('board1/co', str(co), FAILED_CONNECTION_CO)
-    	send('board1/o2', str(o2), FAILED_CONNECTION_O2)
-    	send('board1/amb_press', str(pressure), FAILED_CONNECTION_BMP)
-    	send('board1/temp1_am', str(tempa1), FAILED_CONNECTION_A1)
-    	send('board1/humid1_am', str(huma1), FAILED_CONNECTION_A1)
-    	send('board1/temp2_am', str(tempa2), FAILED_CONNECTION_A2)
-    	send('board1/humid2_am', str(huma2), FAILED_CONNECTION_A2)
-    	send('board1/temp3_am', str(tempa3), FAILED_CONNECTION_A3)
-    	send('board1/humid3_am', str(huma3), FAILED_CONNECTION_A3)
-    	send('board1/temp4_am', str(tempa4), FAILED_CONNECTION_A4)
-    	send('board1/humid4_am', str(huma4), FAILED_CONNECTION_A4)
-    else:
-        do_connect()
-        connect_mqtt()
+    if FAILED_LORA == 1:
+        lora_sender.send(str(b-a))
+        if FAILED_CONNECTION_CO2 == 1:
+            lora_sender.send(str(co2))
+            lora_sender.send(str(hum))
+            lora_sender.send(str(temp))
+        if FAILED_CONNECTION_CO == 1:
+            lora_sender.send(str(co))
+        if FAILED_CONNECTION_O2 == 1:
+            lora_sender.send(str(o2))
+        if FAILED_CONNECTION_BMP == 1:
+            lora_sender.send(str(pressure))
+        if FAILED_CONNECTION_A1 == 1:
+            lora_sender.send(str(tempa1))
+            lora_sender.send(str(huma1))
+        if FAILED_CONNECTION_A2 == 1:
+            lora_sender.send(str(tempa2))
+            lora_sender.send(str(huma2))
+        if FAILED_CONNECTION_A3 == 1:
+            lora_sender.send(str(tempa3))
+            lora_sender.send(str(huma3))
+        if FAILED_CONNECTION_A4 == 1:
+            lora_sender.send(str(tempa4))
+            lora_sender.send(str(huma4))
+            
