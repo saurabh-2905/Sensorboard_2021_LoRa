@@ -35,6 +35,8 @@ CONNECTION_A4 = 1
 scd_co2 = 0
 scd_temp = 0
 scd_hum = 0
+am_temp = 0 #did not previously initialise this variable
+am_hum = 0  #did not previously initialise this variable
 
 #establish I2c Bus
 try:
@@ -159,7 +161,7 @@ while True:
                     # SCD30 sensor readings(involves three values)
                     scd_co2, scd_temp, scd_hum = func_call()
                     SENSOR_DATA.extend((round(scd_co2, 2), round(scd_temp, 2), round(scd_hum, 2)))
-                elif  1 <= i <= 3:
+                elif  1 <= i <= 3: #made small condition change
                     # MCP3221, BMP180 sensor reading
                     SENSOR_DATA.append(round(func_call(), 2))
                 else:
@@ -177,11 +179,21 @@ while True:
             elif 1 <= i <= 3:
                 SENSOR_DATA.append(0) # Sensors other than SCD30
                 FAIL_STATUS = 1 << i
-                SENSOR_STATUS |= FAIL_STATUS
+                SENSOR_STATUS += FAIL_STATUS  #changed the 'bitwise or' to + operation
             else:
                 SENSOR_DATA.extend((0,0)) # Sensors other than SCD30
                 FAIL_STATUS = 1 << i
-                SENSOR_STATUS |= FAIL_STATUS
-
+                SENSOR_STATUS += FAIL_STATUS  #changed the 'bitwise or' to + operation
+                
+    #TODO:reverse the SENSOR_STATUS variable in binary to get the right one, reverse bin(198) in lopy
     msg = ustruct.pack('ffffffffffffffI', SENSOR_DATA[0], SENSOR_DATA[1], SENSOR_DATA[2], SENSOR_DATA[3], SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6], SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9], SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12], SENSOR_DATA[13], SENSOR_STATUS)
-    lora.send(msg)
+    lora.send(msg) 
+    
+    """
+    Debugging steps:
+    1. check for values in scd_co2, scd_temp, scd_hum, am_temp, am_hum seperately
+    2. check for values in SENSOR_DATA[0], [1], [2]...
+    3. Change CONNECTION_VAR for real connection variables and not hard coded 1's
+    4. Try to not round values of SENSOR_DATA
+    5. Try without the while loop(infinite loop)
+    """
