@@ -1,10 +1,10 @@
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # author: Florian Stechmann
 # date: 27.04.2020
 # function: main.py die nach Durchführung der boot.py ausgeführt wird.
 # 	    Misst die Werte der Sensoren und bricht erst nach Abbruch durch
 # 	    Eingabe oder Stromentzug ab. Integriert eine Testversion von LoRa.
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 
 from machine import Pin, I2C, SPI
 from umqtt.robust import MQTTClient
@@ -16,7 +16,7 @@ from am2301 import AM2301
 from lora import LoRa
 
 # Setzt die IP-Adresse des MQTT-Servers und die ID der MCU.
-MQTT_SERVER = '192.168.30.17'    
+MQTT_SERVER = '192.168.30.17'
 CLIENT_ID = ubinascii.hexlify(machine.unique_id())
 
 # Setzt Konstanten für die Adressen.
