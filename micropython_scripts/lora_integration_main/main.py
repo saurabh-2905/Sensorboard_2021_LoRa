@@ -159,7 +159,7 @@ while True:
                     # SCD30 sensor readings(involves three values)
                     scd_co2, scd_temp, scd_hum = func_call()
                     SENSOR_DATA.extend((round(scd_co2, 2), round(scd_temp, 2), round(scd_hum, 2)))
-                elif  i < 4 and i > 0:
+                elif  1 <= i <= 3:
                     # MCP3221, BMP180 sensor reading
                     SENSOR_DATA.append(round(func_call(), 2))
                 else:
@@ -174,7 +174,7 @@ while True:
                 SENSOR_DATA.extend((0,0,0)) # SCD30 involves three readings
                 FAIL_STATUS |= 1
                 SENSOR_STATUS = FAIL_STATUS
-            elif i < 4 and i > 0:
+            elif 1 <= i <= 3:
                 SENSOR_DATA.append(0) # Sensors other than SCD30
                 FAIL_STATUS = 1 << i
                 SENSOR_STATUS |= FAIL_STATUS
