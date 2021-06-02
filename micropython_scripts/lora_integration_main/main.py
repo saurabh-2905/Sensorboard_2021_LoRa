@@ -161,7 +161,7 @@ FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp, measure_am1,
 while True:
     SENSOR_STATUS = 0
     SENSOR_DATA = []
-    
+  
     for i in range(len(CONNECTION_VAR)):
         # Sensor Data is available & sensor is working
         func_call = FUNC_VAR[i]
@@ -186,7 +186,7 @@ while True:
                 CONNECTION_VAR[i] = 1
         except:
             CONNECTION_VAR[i] = 0
-                
+
         if not CONNECTION_VAR[i]:
             # Sensor failed
             if i == 0:
@@ -194,12 +194,10 @@ while True:
                 SENSOR_STATUS = 2**(7-i)
             elif 1 <= i <= 3:
                 SENSOR_DATA.append(0)  # Sensors other than SCD30
-                SENSOR_STATUS += 2**(7-i)  # changed the 'bitwise or' to + operation
+                SENSOR_STATUS += 2**(7-i)
             else:
                 SENSOR_DATA.extend((0, 0))  # Sensors other than SCD30
-                SENSOR_STATUS += 2**(7-i)  # changed the 'bitwise or' to + operation          
-    # TODO:reverse the SENSOR_STATUS variable in binary to get the right one,
-    # reverse bin(198) in lopy
+                SENSOR_STATUS += 2**(7-i)
     msg = ustruct.pack('ffffffffffffffI', SENSOR_DATA[0], SENSOR_DATA[1],
                        SENSOR_DATA[2], SENSOR_DATA[3], SENSOR_DATA[4],
                        SENSOR_DATA[5], SENSOR_DATA[6], SENSOR_DATA[7],
