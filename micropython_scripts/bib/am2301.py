@@ -1,4 +1,4 @@
-#-------------------------------------------------------------------------------
+x-------------------------------------------------------------------------------
 # author: Florian Stechmann
 # date: 19.12.2020
 # function: Definert Verhalten der AM2301 Sensoren und deren Messung.
@@ -26,7 +26,7 @@ class AM2301:
     	    self.d.measure()
     	    time.sleep_ms(500)
             temp = self.d.temperature()
-            humid =  self.d.humidity()
+            humid = self.d.humidity()
     	    return (temp, humid)
     	except:
     	    raise
