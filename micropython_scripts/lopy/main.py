@@ -11,10 +11,10 @@ from umqtt import MQTTClient
 import socket, ustruct, ubinascii, network, machine
 
 # Tuple with MQTT topics
-_TOPICS = ("board2/co2_scd", "board2/co", "board2/o2", "board2/amb_press",
-           "board2/temp1_am", "board2/humid1_am", "board2/temp2_am",
-           "board2/humid2_am", "board2/temp3_am", "board2/humid3_am",
-           "board2/temp4_am", "board2/humid4_am")
+_TOPICS = ("board1/co2_scd", "board1/co", "board1/o2", "board1/amb_press",
+           "board1/temp1_am", "board1/humid1_am", "board1/temp2_am",
+           "board1/humid2_am", "board1/temp3_am", "board1/humid3_am",
+           "board1/temp4_am", "board1/humid4_am")
 
 length_topics = const(14)
 comp_const = const(1)
@@ -27,7 +27,7 @@ wlan = network.WLAN(network.STA_IF)
 wlan.active(True)
 
 # Setting up MQTT
-MQTT_SERVER = '192.168.30.17'  
+MQTT_SERVER = '192.168.30.17'
 CLIENT_ID = ubinascii.hexlify(machine.unique_id())
 CLIENT = MQTTClient(CLIENT_ID, MQTT_SERVER)
 
@@ -59,7 +59,7 @@ def check_wifi():
 def set_failed_sensor(number):
     """
     """
-    sensor_connections[number-1] = 1
+    sensor_connections[number] = 1
 
 
 def check_sensors(val):
@@ -67,7 +67,7 @@ def check_sensors(val):
     """
     for i in range(8):
         if val & comp_const == 1:
-            set_failed_sensor[i] == 1
+            set_failed_sensor(i)
         val = val >> comp_const
 
 
@@ -78,7 +78,7 @@ def send_mqtt(values):
         for j in range(12):
             CLIENT.publish(topic=_TOPICS[j], msg=values[j])
     else:
-        check_sensors(values)
+        check_sensors(values[length_topics])
         for i in range(12):
             if i < 4:
                 if sensor_connections[i] == 0:
@@ -100,7 +100,7 @@ if not check_wifi():
 while True:
     recv_msg = s.recv(64)
     if check_wifi():
-        values = ustruct.unpack('ffffffffffffffI', recv_msg)
+        values = ustruct.unpack('ffffffffffffI', recv_msg)
         send_mqtt(values)
     else:
         connect_wifi_mqtt()

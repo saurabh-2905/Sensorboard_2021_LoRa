@@ -190,17 +190,16 @@ while True:
             # Sensor failed
             if i == 0:
                 SENSOR_DATA.extend((0, 0, 0))  # SCD30 involves three readings
-                SENSOR_STATUS = 2**(7-i)
+                SENSOR_STATUS = 2**(i)
             elif 1 <= i <= 3:
                 SENSOR_DATA.append(0)  # Sensors other than SCD30
-                SENSOR_STATUS += 2**(7-i)
+                SENSOR_STATUS += 2**(i)
             else:
                 SENSOR_DATA.extend((0, 0))  # Sensors other than SCD30
-                SENSOR_STATUS += 2**(7-i)
-    msg = ustruct.pack('ffffffffffffffI', SENSOR_DATA[0], SENSOR_DATA[1],
-                       SENSOR_DATA[2], SENSOR_DATA[3], SENSOR_DATA[4],
-                       SENSOR_DATA[5], SENSOR_DATA[6], SENSOR_DATA[7],
-                       SENSOR_DATA[8], SENSOR_DATA[9], SENSOR_DATA[10],
-                       SENSOR_DATA[11], SENSOR_DATA[12], SENSOR_DATA[13],
-                       SENSOR_STATUS)
+                SENSOR_STATUS += 2**(i)
+    msg = ustruct.pack('ffffffffffffI', SENSOR_DATA[0], SENSOR_DATA[3],
+                       SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
+                       SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
+                       SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
+                       SENSOR_DATA[13], SENSOR_STATUS)
     lora.send(msg)
