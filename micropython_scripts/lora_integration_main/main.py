@@ -180,7 +180,8 @@ while True:
             else:
                 # AM2301 readings(involves 2 values)
                 am_temp, am_hum = func_call()
-                SENSOR_DATA.extend(am_temp, am_hum)
+                SENSOR_DATA.append(am_temp)
+                SENSOR_DATA.append(am_hum)
             if CONNECTION_VAR[i] == 0:
                 CONNECTION_VAR[i] = 1
         except:
