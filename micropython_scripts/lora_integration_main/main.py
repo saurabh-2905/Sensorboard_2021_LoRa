@@ -161,7 +161,7 @@ FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp, measure_am1,
 while True:
     SENSOR_STATUS = 0
     SENSOR_DATA = []
-  
+
     for i in range(len(CONNECTION_VAR)):
         # Sensor Data is available & sensor is working
         func_call = FUNC_VAR[i]
