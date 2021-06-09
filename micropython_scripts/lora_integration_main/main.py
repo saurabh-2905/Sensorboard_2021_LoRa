@@ -22,7 +22,7 @@ AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
 
-#Connection_variables initialisation
+# Connection_variables initialisation
 FAILED_LORA = 1
 CONNECTION_CO2 = 1
 CONNECTION_CO = 1
@@ -180,8 +180,7 @@ while True:
             else:
                 # AM2301 readings(involves 2 values)
                 am_temp, am_hum = func_call()
-                SENSOR_DATA.append(am_temp)
-                SENSOR_DATA.append(am_hum)
+                SENSOR_DATA.extend(am_temp, am_hum)
             if CONNECTION_VAR[i] == 0:
                 CONNECTION_VAR[i] = 1
         except:
@@ -205,11 +204,3 @@ while True:
                        SENSOR_DATA[11], SENSOR_DATA[12], SENSOR_DATA[13],
                        SENSOR_STATUS)
     lora.send(msg)
-    """
-    Debugging steps:
-    1. check for values in scd_co2, scd_temp, scd_hum, am_temp, am_hum seperately
-    2. check for values in SENSOR_DATA[0], [1], [2]...
-    3. Change CONNECTION_VAR for real connection variables and not hard coded 1's
-    4. Try to not round values of SENSOR_DATA
-    5. Try without the while loop(infinite loop)
-    """
