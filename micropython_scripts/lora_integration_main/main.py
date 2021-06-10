@@ -162,7 +162,7 @@ def cb(p):
     lora.send(msg)
 
 
-THRESHOLD_LIMITS = ((0.0, 2500.0), (0.0, 20.0), (19.5, 23.0), (1000.0, 1100.0),
+THRESHOLD_LIMITS = ((0.0, 2500.0), (0.0, 20.0), (19.5, 23.0), (1010.0, 1040.0),
                     (18.0, 30.0, 0.0, 100.0))
 
 CONNECTION_VAR = [CONNECTION_CO2, CONNECTION_CO, CONNECTION_O2,
@@ -174,7 +174,7 @@ FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp, measure_am1,
 
 timer0 = Timer(0)
 msg = ""
-timer0.init(period=120000, mode=Timer.PERIODIC, callback=cb)
+timer0.init(period=30000, mode=Timer.PERIODIC, callback=cb)
 
 # infinite loop execution
 while True:
