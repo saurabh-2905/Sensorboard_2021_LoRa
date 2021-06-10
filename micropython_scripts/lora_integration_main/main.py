@@ -181,7 +181,6 @@ while True:
     SENSOR_STATUS = 0
     SENSOR_DATA = []
     LIMITS_BROKEN = 0
-
     for i in range(len(CONNECTION_VAR)):
         # Sensor Data is available & sensor is working
         func_call = FUNC_VAR[i]
@@ -191,29 +190,26 @@ while True:
                 reading_co2 = func_call()
                 if not reading_co2[0] == -1:
                     scd_co2, scd_temp, scd_hum = reading_co2
-                    if THRESHOLD_LIMITS[i][0] <= scd_co2 <= THRESHOLD_LIMITS[i][1]:
+                    if not (THRESHOLD_LIMITS[i][0] <= scd_co2 <= THRESHOLD_LIMITS[i][1]):
                         LIMITS_BROKEN = 1
                 SENSOR_DATA.extend((round(scd_co2, 2),
                                     round(scd_temp, 2),
                                     round(scd_hum, 2)))
-                print(str(i) + " " + str(LIMITS_BROKEN))
             elif 1 <= i <= 3:
                 # MCP3221, BMP180 sensor reading
                 var = func_call()
-                if THRESHOLD_LIMITS[i][0] <= var <= THRESHOLD_LIMITS[i][1]:
+                if not (THRESHOLD_LIMITS[i][0] <= var <= THRESHOLD_LIMITS[i][1]):
                     LIMITS_BROKEN = 1
                 SENSOR_DATA.append(round(var, 2))
-                print(str(i) + " " + str(LIMITS_BROKEN))
             else:
                 # AM2301 readings(involves 2 values)
                 am_temp, am_hum = func_call()
-                if THRESHOLD_LIMITS[4][0] <= am_temp <= THRESHOLD_LIMITS[4][1]:
+                if not (THRESHOLD_LIMITS[4][0] <= am_temp <= THRESHOLD_LIMITS[4][1]):
                     LIMITS_BROKEN = 1
-                if THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]:
+                if not (THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]):
                     LIMITS_BROKEN = 1
                 SENSOR_DATA.append(am_temp)
                 SENSOR_DATA.append(am_hum)
-                print(str(i) + " " + str(LIMITS_BROKEN))
             if CONNECTION_VAR[i] == 0:
                 CONNECTION_VAR[i] = 1
         except:
@@ -237,4 +233,3 @@ while True:
                        SENSOR_DATA[13], SENSOR_STATUS, 1)
     if LIMITS_BROKEN:
         lora.send(msg)
-        LIMITS_BROKEN = 0
