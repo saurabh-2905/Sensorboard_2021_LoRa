@@ -5,13 +5,17 @@
 # -------------------------------------------------------------------------------
 
 # import libraries
-from machine import Pin, I2C, SoftSPI
+from machine import Pin, I2C, SoftSPI, Timer
+import micropython
 import ustruct
 from scd30 import SCD30
 from lora import LoRa
 from mcp3221 import MCP3221
 from bmp180 import BMP180
 from am2301 import AM2301
+
+# Allcoate emergeny buffer for interrupt signals
+micropython.alloc_emergency_exception_buf(100)
 
 # addresses of sensors
 O2_ADRR = const(0x48)
@@ -152,15 +156,31 @@ def measure_am4():
     return AM2301_4.read_measurement()
 
 
+def cb(p):
+    """
+    """
+    lora.send(msg)
+
+
+THRESHOLD_LIMITS = ((0.0, 2500.0), (0.0, 20.0), (19.5, 23.0), (1000.0, 1100.0),
+                    (18.0, 30.0, 0.0, 100.0))
+
 CONNECTION_VAR = [CONNECTION_CO2, CONNECTION_CO, CONNECTION_O2,
                   CONNECTION_BMP, CONNECTION_A1, CONNECTION_A2,
                   CONNECTION_A3, CONNECTION_A4]
+
 FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp, measure_am1,
             measure_am2, measure_am3, measure_am4)
+
+timer0 = Timer(0)
+msg = ""
+timer0.init(period=120000, mode=Timer.PERIODIC, callback=cb)
+
 # infinite loop execution
 while True:
     SENSOR_STATUS = 0
     SENSOR_DATA = []
+    LIMITS_BROKEN = 0
 
     for i in range(len(CONNECTION_VAR)):
         # Sensor Data is available & sensor is working
@@ -171,17 +191,29 @@ while True:
                 reading_co2 = func_call()
                 if not reading_co2[0] == -1:
                     scd_co2, scd_temp, scd_hum = reading_co2
+                    if THRESHOLD_LIMITS[i][0] <= scd_co2 <= THRESHOLD_LIMITS[i][1]:
+                        LIMITS_BROKEN = 1
                 SENSOR_DATA.extend((round(scd_co2, 2),
                                     round(scd_temp, 2),
                                     round(scd_hum, 2)))
+                print(str(i) + " " + str(LIMITS_BROKEN))
             elif 1 <= i <= 3:
                 # MCP3221, BMP180 sensor reading
-                SENSOR_DATA.append(round(func_call(), 2))
+                var = func_call()
+                if THRESHOLD_LIMITS[i][0] <= var <= THRESHOLD_LIMITS[i][1]:
+                    LIMITS_BROKEN = 1
+                SENSOR_DATA.append(round(var, 2))
+                print(str(i) + " " + str(LIMITS_BROKEN))
             else:
                 # AM2301 readings(involves 2 values)
                 am_temp, am_hum = func_call()
+                if THRESHOLD_LIMITS[4][0] <= am_temp <= THRESHOLD_LIMITS[4][1]:
+                    LIMITS_BROKEN = 1
+                if THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]:
+                    LIMITS_BROKEN = 1
                 SENSOR_DATA.append(am_temp)
                 SENSOR_DATA.append(am_hum)
+                print(str(i) + " " + str(LIMITS_BROKEN))
             if CONNECTION_VAR[i] == 0:
                 CONNECTION_VAR[i] = 1
         except:
@@ -198,9 +230,11 @@ while True:
             else:
                 SENSOR_DATA.extend((0, 0))  # Sensors other than SCD30
                 SENSOR_STATUS += 2**(i)
-    msg = ustruct.pack('ffffffffffffI', SENSOR_DATA[0], SENSOR_DATA[3],
+    msg = ustruct.pack('ffffffffffffII', SENSOR_DATA[0], SENSOR_DATA[3],
                        SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
                        SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
                        SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
-                       SENSOR_DATA[13], SENSOR_STATUS)
-    lora.send(msg)
+                       SENSOR_DATA[13], SENSOR_STATUS, 1)
+    if LIMITS_BROKEN:
+        lora.send(msg)
+        LIMITS_BROKEN = 0
