@@ -17,6 +17,7 @@ _TOPICS = ("board1/co2_scd", "board1/co", "board1/o2", "board1/amb_press",
            "board1/humid2_am", "board1/temp3_am", "board1/humid3_am",
            "board1/temp4_am", "board1/humid4_am")
 
+_Failed_times = "board1/failed"
 comp_const = const(1)
 length_failed_sensors = const(8)
 length_values = const(12) #12 sensor readings+sensor board number+heartbeat+limits broken
@@ -24,6 +25,9 @@ emergency = const(13)
 heartbeat = const(14)
 
 sensor_connections = [0, 0, 0, 0, 0, 0, 0, 0]
+
+counter = 0
+counter_mqtt = 0
 
 # Setting up WIFI
 wlan = network.WLAN(mode=network.WLAN.STA)
@@ -46,7 +50,7 @@ def cb(p):
     global counter
     counter += 1
     if counter == 3:
-        s.send(ustruct.unpack('II',sensorboard_id,packet_id)) # TODO: activate backupboard, sensor id and packet id initialisation
+        CLIENT.publish()# TODO
 
 def connect_wifi_mqtt(ssid="Mamba", pw="We8r21u7"):
     """
@@ -91,10 +95,10 @@ def send_mqtt(values):
         for j in range(length_values):
             try:
                 CLIENT.publish(topic=_TOPICS[j], msg=str(values[j]))
-                CLIENT.publish(topic=_Failed_times, msg=str(counter))                                                       
+                CLIENT.publish(topic=_Failed_times, msg=str(counter_mqtt))
+                counter_mqtt = 0
             except:
-                counter+=1
-                
+                counter_mqtt += 1
     else:
         check_sensors(values[length_values])
         i = 0
@@ -103,9 +107,10 @@ def send_mqtt(values):
                 if not sensor_connections[j]:
                     try:
                         CLIENT.publish(topic=_TOPICS[i], msg=str(values[i]))
-                        CLIENT.publish(topic=_Failed_times, msg=str(counter))
+                        CLIENT.publish(topic=_Failed_times, msg=str(counter_mqtt))
+                        counter_mqtt = 0
                     except:
-                        counter+=1
+                        counter_mqtt += 1
                         
                     i += 1
             else:
@@ -113,9 +118,10 @@ def send_mqtt(values):
                     try:
                         CLIENT.publish(topic=_TOPICS[i], msg=str(values[i]))
                         CLIENT.publish(topic=_TOPICS[i+1], msg=str(values[i+1]))
-                        CLIENT.publish(topic =_Failed_times, msg=str(counter))
+                        CLIENT.publish(topic=_Failed_times, msg=str(counter_mqtt))
+                        counter_mqtt = 0
                     except:
-                        counter+=1
+                        counter_mqtt += 1
                 i += 2
     publish_failed_sensors()
 
@@ -131,8 +137,6 @@ timer1 = Timer(1)
 timer1.init(period=2000, mode=Timer.PERIODIC, callback=cb)
 
 timer1 = Timer.Alarm(handler=cb, periodic=True)
-
-
 
 # Start of loop
 while True:
