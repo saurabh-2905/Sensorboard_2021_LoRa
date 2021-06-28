@@ -13,7 +13,7 @@ from lora import LoRa
 from mcp3221 import MCP3221
 from bmp180 import BMP180
 from am2301 import AM2301
-import uheapq
+import uheapq, time
 
 # Allcoate emergeny buffer for interrupt signals
 micropython.alloc_emergency_exception_buf(100)
@@ -26,7 +26,7 @@ AM2301_1_ADRR = const(0)
 AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
-SENSORBOARD_ID = const(00)
+SENSORBOARD_ID = const(1)
 HEARTBEAT = const(1)
 
 
@@ -46,8 +46,6 @@ scd_hum = 0
 am_temp = 0  # did not previously initialise this variable
 am_hum = 0  # did not previously initialise this variable
 que = []
-
-time.sleep(10)
 
 # establish I2c Bus
 try:
@@ -166,15 +164,25 @@ def measure_am4():
 def cb1(p):
     """
     """
-    lora.send(uheapq.heappop(que))
+    uheapq.heappush(que, msg)
+    lora.send(que[0])
+    lora.recv()
+
 
 def cb2(p):
     """
     """
-    lora.send(ustruct.pack('ffffffffffffIIII',0,0,0,0,0,0,0,0,0,0,0,0, 0, 0,HEARTBEAT, SENSORBOARD_ID) #TODO: Convert to float 0.0  
-    
+    lora.send(ustruct.pack('ffffffffffffIIII', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                           0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                           0, 0, HEARTBEAT, SENSORBOARD_ID))
 
-              
+
+def cb_lora(p):
+    """
+    """
+    uheapq.heappop(que)
+
+
 THRESHOLD_LIMITS = ((0.0, 2500.0), (0.0, 20.0), (19.5, 23.0), (1010.0, 1040.0),
                     (18.0, 30.0, 0.0, 100.0))
 
@@ -185,22 +193,26 @@ CONNECTION_VAR = [CONNECTION_CO2, CONNECTION_CO, CONNECTION_O2,
 FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp, measure_am1,
             measure_am2, measure_am3, measure_am4)
 
+time.sleep(10)
+
+lora.on_recv(cb_lora)
+
 timer0 = Timer(0)
 msg = ""
 timer0.init(period=30000, mode=Timer.PERIODIC, callback=cb1)
 
-#Heartbeat signal(sensorboard number + heartbeat signal)
+# Heartbeat signal(sensorboard number + heartbeat signal)
 timer1 = Timer(1)
 timer1.init(period=2000, mode=Timer.PERIODIC, callback=cb2)
-#recv_msg = ustruct.unpack('II',lora.recv()))
-#if recv_msg[]
+# recv_msg = ustruct.unpack('II',lora.recv()))
+# if recv_msg[]
 
 # infinite loop execution
 while True:
     SENSOR_STATUS = 0
     SENSOR_DATA = []
     LIMITS_BROKEN = 0
-    
+
     for i in range(len(CONNECTION_VAR)):
         # Sensor Data is available & sensor is working
         func_call = FUNC_VAR[i]
@@ -232,7 +244,7 @@ while True:
                 SENSOR_DATA.append(am_hum)
             if CONNECTION_VAR[i] == 0:
                 CONNECTION_VAR[i] = 1
-        except:
+        except Exception:
             CONNECTION_VAR[i] = 0
 
         if not CONNECTION_VAR[i]:
@@ -250,9 +262,9 @@ while True:
                        SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
                        SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
                        SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
-                       SENSOR_DATA[13], SENSOR_STATUS, LIMITS_BROKEN, 0, SENSORBOARD_ID)#
+                       SENSOR_DATA[13], SENSOR_STATUS,
+                       LIMITS_BROKEN, 0, SENSORBOARD_ID)
 
-    uheapq.heappush(que,msg)
-              
     if LIMITS_BROKEN:
-        lora.send(uheapq.heappop(que))
+        lora.send(msg)
+        lora.recv()

@@ -205,7 +205,7 @@ class LoRa:
                 self.rx.irq(handler=None, trigger=0)
 
     def recv(self):
-        self._write(REG_OP_MODE, MODE_LORA | MODE_RX_CONTINUOUS) 
+        self._write(REG_OP_MODE, MODE_LORA | MODE_RX_CONTINUOUS)
 
     def _irq_recv(self, event_source):
         f = self._get_irq_flags()

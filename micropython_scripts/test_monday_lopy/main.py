@@ -17,7 +17,7 @@ _TOPICS = ("board1/co2_scd", "board1/co", "board1/o2", "board1/amb_press",
            "board1/humid2_am", "board1/temp3_am", "board1/humid3_am",
            "board1/temp4_am", "board1/humid4_am")
 
-_Failed_times = "board1/failed"
+_Failed_times = "board1/active"
 comp_const = const(1)
 length_failed_sensors = const(8)
 length_values = const(12) #12 sensor readings+sensor board number+heartbeat+limits broken
