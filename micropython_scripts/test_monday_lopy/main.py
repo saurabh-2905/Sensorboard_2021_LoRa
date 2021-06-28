@@ -20,6 +20,8 @@ _TOPICS = ("board1/co2_scd", "board1/co", "board1/o2", "board1/amb_press",
 comp_const = const(1)
 length_failed_sensors = const(8)
 length_values = const(12) #12 sensor readings+sensor board number+heartbeat+limits broken
+emergency = const(13)
+heartbeat = const(14)
 
 sensor_connections = [0, 0, 0, 0, 0, 0, 0, 0]
 
@@ -38,6 +40,13 @@ lora = LoRa(mode=LoRa.LORA, region=LoRa.EU868, bandwidth=LoRa.BW_125KHZ, sf=7,
 
 s = socket.socket(socket.AF_LORA, socket.SOCK_RAW)
 s.setblocking(True)
+
+#Callback function to trace heartbeat packet loss
+def cb(p):
+    global counter
+    counter += 1
+    if counter == 3:
+        s.send(ustruct.unpack('II',sensorboard_id,packet_id)) # TODO: activate backupboard, sensor id and packet id initialisation
 
 def connect_wifi_mqtt(ssid="Mamba", pw="We8r21u7"):
     """
@@ -80,19 +89,33 @@ def send_mqtt(values):
     """
     if not values[length_values]:
         for j in range(length_values):
-            CLIENT.publish(topic=_TOPICS[j], msg=str(values[j]))
+            try:
+                CLIENT.publish(topic=_TOPICS[j], msg=str(values[j]))
+                CLIENT.publish(topic=_Failed_times, msg=str(counter))                                                       
+            except:
+                counter+=1
+                
     else:
         check_sensors(values[length_values])
         i = 0
         for j in range(length_failed_sensors):
             if i < 4:
                 if not sensor_connections[j]:
-                    CLIENT.publish(topic=_TOPICS[i], msg=str(values[i]))
-                i += 1
+                    try:
+                        CLIENT.publish(topic=_TOPICS[i], msg=str(values[i]))
+                        CLIENT.publish(topic=_Failed_times, msg=str(counter))
+                    except:
+                        counter+=1
+                        
+                    i += 1
             else:
                 if not sensor_connections[j]:
-                    CLIENT.publish(topic=_TOPICS[i], msg=str(values[i]))
-                    CLIENT.publish(topic=_TOPICS[i+1], msg=str(values[i+1]))
+                    try:
+                        CLIENT.publish(topic=_TOPICS[i], msg=str(values[i]))
+                        CLIENT.publish(topic=_TOPICS[i+1], msg=str(values[i+1]))
+                        CLIENT.publish(topic =_Failed_times, msg=str(counter))
+                    except:
+                        counter+=1
                 i += 2
     publish_failed_sensors()
 
@@ -104,11 +127,22 @@ connect_wifi_mqtt()
 if not wlan.isconnected():
     connect_wifi_mqtt()
 
+timer1 = Timer(1)
+timer1.init(period=2000, mode=Timer.PERIODIC, callback=cb)
+
+timer1 = Timer.Alarm(handler=cb, periodic=True)
+
+
+
 # Start of loop
 while True:
     recv_msg = s.recv(64)
     if wlan.isconnected():
-        values = ustruct.unpack('ffffffffffffII', recv_msg)
-        send_mqtt(values)
+        values = ustruct.unpack('ffffffffffffIIII', recv_msg)
+        #If limits are broken send immediately
+        if values[emergency] and (not values[heartbeat]):
+            send_mqtt(values)
+        elif values[heartbeat]:
+            counter = 0
     else:
         connect_wifi_mqtt()

@@ -5,7 +5,7 @@
 # -------------------------------------------------------------------------------
 
 # import libraries
-from machine import Pin, I2C, SoftSPI, Timer, time
+from machine import Pin, I2C, SoftSPI, Timer
 import micropython
 import ustruct
 from scd30 import SCD30
@@ -13,6 +13,7 @@ from lora import LoRa
 from mcp3221 import MCP3221
 from bmp180 import BMP180
 from am2301 import AM2301
+import uheapq
 
 # Allcoate emergeny buffer for interrupt signals
 micropython.alloc_emergency_exception_buf(100)
@@ -25,7 +26,9 @@ AM2301_1_ADRR = const(0)
 AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
-sensorboard = const(00)
+SENSORBOARD_ID = const(00)
+HEARTBEAT = const(1)
+
 
 # Connection_variables initialisation
 FAILED_LORA = 1
@@ -42,6 +45,7 @@ scd_temp = 0
 scd_hum = 0
 am_temp = 0  # did not previously initialise this variable
 am_hum = 0  # did not previously initialise this variable
+que = []
 
 time.sleep(10)
 
@@ -162,7 +166,13 @@ def measure_am4():
 def cb1(p):
     """
     """
-    lora.send(msg)
+    lora.send(uheapq.heappop(que))
+
+def cb2(p):
+    """
+    """
+    lora.send(ustruct.pack('ffffffffffffIIII',0,0,0,0,0,0,0,0,0,0,0,0, 0, 0,HEARTBEAT, SENSORBOARD_ID) #TODO: Convert to float 0.0  
+    
 
               
 THRESHOLD_LIMITS = ((0.0, 2500.0), (0.0, 20.0), (19.5, 23.0), (1010.0, 1040.0),
@@ -179,12 +189,18 @@ timer0 = Timer(0)
 msg = ""
 timer0.init(period=30000, mode=Timer.PERIODIC, callback=cb1)
 
+#Heartbeat signal(sensorboard number + heartbeat signal)
+timer1 = Timer(1)
+timer1.init(period=2000, mode=Timer.PERIODIC, callback=cb2)
+#recv_msg = ustruct.unpack('II',lora.recv()))
+#if recv_msg[]
 
 # infinite loop execution
 while True:
     SENSOR_STATUS = 0
     SENSOR_DATA = []
     LIMITS_BROKEN = 0
+    
     for i in range(len(CONNECTION_VAR)):
         # Sensor Data is available & sensor is working
         func_call = FUNC_VAR[i]
@@ -230,10 +246,13 @@ while True:
             else:
                 SENSOR_DATA.extend((0, 0))  # Sensors other than SCD30
                 SENSOR_STATUS += 2**(i)
-    msg = ustruct.pack('ffffffffffffII', SENSOR_DATA[0], SENSOR_DATA[3],
+    msg = ustruct.pack('ffffffffffffIIII', SENSOR_DATA[0], SENSOR_DATA[3],
                        SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
                        SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
                        SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
-                       SENSOR_DATA[13], SENSOR_STATUS, 0) 
+                       SENSOR_DATA[13], SENSOR_STATUS, LIMITS_BROKEN, 0, SENSORBOARD_ID)#
+
+    uheapq.heappush(que,msg)
+              
     if LIMITS_BROKEN:
-        lora.send(msg)
+        lora.send(uheapq.heappop(que))
