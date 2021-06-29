@@ -17,12 +17,13 @@ _TOPICS = ("board1/co2_scd", "board1/co", "board1/o2", "board1/amb_press",
            "board1/humid2_am", "board1/temp3_am", "board1/humid3_am",
            "board1/temp4_am", "board1/humid4_am")
 
-_Failed_times = "board1/active"
+_Failed_times = "board1/active_status"
 comp_const = const(1)
 length_failed_sensors = const(8)
 length_values = const(12) #12 sensor readings+sensor board number+heartbeat+limits broken
 emergency = const(13)
 heartbeat = const(14)
+sensorboard_id = const(1)
 
 sensor_connections = [0, 0, 0, 0, 0, 0, 0, 0]
 
@@ -50,8 +51,8 @@ def cb(p):
     global counter
     counter += 1
     if counter == 3:
-        CLIENT.publish()# TODO
-
+        #TODO: mqtt publish
+        
 def connect_wifi_mqtt(ssid="Mamba", pw="We8r21u7"):
     """
     """
@@ -111,7 +112,6 @@ def send_mqtt(values):
                         counter_mqtt = 0
                     except:
                         counter_mqtt += 1
-                        
                     i += 1
             else:
                 if not sensor_connections[j]:
@@ -125,7 +125,6 @@ def send_mqtt(values):
                 i += 2
     publish_failed_sensors()
 
-
 # Connect WIFI and MQTT
 connect_wifi_mqtt()
 
@@ -133,10 +132,7 @@ connect_wifi_mqtt()
 if not wlan.isconnected():
     connect_wifi_mqtt()
 
-timer1 = Timer(1)
-timer1.init(period=2000, mode=Timer.PERIODIC, callback=cb)
-
-timer1 = Timer.Alarm(handler=cb, periodic=True)
+Timer.Alarm(cb, 2.0, periodic=True)
 
 # Start of loop
 while True:
@@ -144,8 +140,9 @@ while True:
     if wlan.isconnected():
         values = ustruct.unpack('ffffffffffffIIII', recv_msg)
         #If limits are broken send immediately
-        if values[emergency] and (not values[heartbeat]):
+        if not values[heartbeat]:
             send_mqtt(values)
+            s.send(str(sensorboard_id))
         elif values[heartbeat]:
             counter = 0
     else:
