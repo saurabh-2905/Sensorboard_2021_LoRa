@@ -6,7 +6,6 @@
 # 	    wie den debug modus und den garbage collector.
 # ------------------------------------------------------------------------------
 
-import network
 import esp
 import gc
 
@@ -18,19 +17,6 @@ def no_debug():
     esp.osdebug(None)
 
 
-def do_connect(name="Mamba", pw="We8r21u7"):
-    """
-    Verbindet die MCU mit dem gegebenen WLAN-Netzwerk
-    mit name = SSID und pw = password
-    """
-    wlan = network.WLAN(network.STA_IF)
-    if not wlan.isconnected():
-        wlan.active(True)
-        wlan.connect(name, pw)
-        if wlan.isconnected():
-            pass
-
-
 def gc_enable():
     """
     Schaltet den Garbage Collector ein.
@@ -40,4 +26,3 @@ def gc_enable():
 
 no_debug()
 gc_enable()
-do_connect()
