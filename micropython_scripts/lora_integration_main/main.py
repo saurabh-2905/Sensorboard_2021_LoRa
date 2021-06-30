@@ -29,7 +29,7 @@ AM2301_4_ADRR = const(16)
 SENSORBOARD_ID = const(1)
 HEARTBEAT = const(1)
 
-heartbeat_msg = ustruct.pack('II', HEARTBEAT, SENSORBOARD_ID)
+heartbeat_msg = ustruct.pack('I', SENSORBOARD_ID)
 
 # Connection_variables initialisation
 FAILED_LORA = 1
@@ -186,7 +186,7 @@ def cb_lora(p):
         pass
 
 
-THRESHOLD_LIMITS = ((0.0, 2500.0), (0.0, 20.0), (19.5, 23.0), (1010.0, 1040.0),
+THRESHOLD_LIMITS = ((0.0, 1000.0), (0.0, 20.0), (19.5, 23.0), (1010.0, 1040.0),
                     (18.0, 30.0, 0.0, 100.0))
 
 CONNECTION_VAR = [CONNECTION_CO2, CONNECTION_CO, CONNECTION_O2,
