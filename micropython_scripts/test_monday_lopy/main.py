@@ -23,13 +23,16 @@ length_failed_sensors = const(8)
 length_values = const(12) #12 sensor readings+sensor board number+heartbeat+limits broken
 emergency = const(13)
 heartbeat = const(14)
-id="0"
+counter_board1 = 0
+counter_board2 = 0
+counter_board3 = 0
+counter_board4 = 0
+val_hb = 0
 
 sensor_connections = [0, 0, 0, 0, 0, 0, 0, 0]
 
 micropython.alloc_emergency_exception_buf(100)
 
-counter = 0
 #global counter_mqtt
 counter_mqtt = 0
 
@@ -51,12 +54,26 @@ s.setblocking(True)
 
 #Callback function to trace heartbeat packet loss
 def cb(p):
-    global counter
-    counter += 1
-    if counter == 3:
-        CLIENT.publish(topic=_Failed_times.format(id=id), msg="1")
+    global counter_board1, counter_board2, counter_board3, counter_board4
+    if val_hb == 1:
+        counter_board1 += 1
+        if counter_board1 == 3:
+            CLIENT.publish(topic=_Failed_times.format(id=1), msg="1")
         
-    
+    elif val_hb == 2:
+        counter_board2 += 1
+        if counter_board2 == 3:
+            CLIENT.publish(topic=_Failed_times.format(id=2), msg="1")
+        
+    elif val_hb == 3:
+        counter_board3 += 1
+        if counter_board3 == 3:
+            CLIENT.publish(topic=_Failed_times.format(id=3), msg="1")
+        
+    elif val_hb == 4:
+        counter_board4 += 1
+        if counter_board4 == 3:
+            CLIENT.publish(topic=_Failed_times.format(id=4), msg="1")   
         
 def connect_wifi_mqtt(ssid="Mamba", pw="We8r21u7"):
     """
@@ -148,17 +165,26 @@ while True:
     recv_msg = s.recv(64)
     if wlan.isconnected():
         try:
-            values = ustruct.unpack('I', recv_msg)
-            
-            counter = 0
-            CLIENT.publish(topic=_Failed_times.format(id=id), msg="0")    
+            values = ustruct.unpack('ffffffffffffIIII', recv_msg)
+            send_mqtt(values)
+            if not values[emergency]:
+                s.send(str(values[15]))   
         except:
             try:
-                values = ustruct.unpack('ffffffffffffIIII', recv_msg)
-                send_mqtt(values)
-                if not values[emergency]:
-                    s.send(str(values[15]))
-                
+                val_hb = ustruct.unpack('I', recv_msg)[0]
+                print(val_hb)
+                if val_hb == 1:
+                    counter_board1 = 0
+                    CLIENT.publish(topic=_Failed_times.format(id=1), msg="0")
+                elif val_hb == 2:
+                    counter_board2 = 0
+                    CLIENT.publish(topic=_Failed_times.format(id=2), msg="0") 
+                elif val_hb == 3:
+                    counter_board3 = 0
+                    CLIENT.publish(topic=_Failed_times.format(id=3), msg="0") 
+                elif val_hb == 4:
+                    counter_board4 = 0
+                    CLIENT.publish(topic=_Failed_times.format(id=4), msg="0")
             except:
                 pass
     else:
