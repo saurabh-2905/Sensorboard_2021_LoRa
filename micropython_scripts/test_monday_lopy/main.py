@@ -9,25 +9,28 @@ from network import LoRa
 from mqtt import MQTTClient
 from machine import Timer
 
-import socket, ustruct, ubinascii, network, machine, time
+import socket, ustruct, ubinascii, network, machine, time, micropython
 
 # Tuple with MQTT topics
-_TOPICS = ("board1/co2_scd", "board1/co", "board1/o2", "board1/amb_press",
-           "board1/temp1_am", "board1/humid1_am", "board1/temp2_am",
-           "board1/humid2_am", "board1/temp3_am", "board1/humid3_am",
-           "board1/temp4_am", "board1/humid4_am")
+_TOPICS = ("board{id}/co2_scd", "board{id}/co", "board{id}/o2", "board{id}/amb_press",
+           "board{id}/temp1_am", "board{id}/humid1_am", "board{id}/temp2_am",
+           "board{id}/humid2_am", "board{id}/temp3_am", "board{id}/humid3_am",
+           "board{id}/temp4_am", "board{id}/humid4_am")
 
-_Failed_times = "board1/active_status"
+_Failed_times = "board{id}/active_status"
 comp_const = const(1)
 length_failed_sensors = const(8)
 length_values = const(12) #12 sensor readings+sensor board number+heartbeat+limits broken
 emergency = const(13)
 heartbeat = const(14)
-sensorboard_id = const(1)
+id="0"
 
 sensor_connections = [0, 0, 0, 0, 0, 0, 0, 0]
 
+micropython.alloc_emergency_exception_buf(100)
+
 counter = 0
+#global counter_mqtt
 counter_mqtt = 0
 
 # Setting up WIFI
@@ -51,7 +54,9 @@ def cb(p):
     global counter
     counter += 1
     if counter == 3:
-        #TODO: mqtt publish
+        CLIENT.publish(topic=_Failed_times.format(id=id), msg="1")
+        
+    
         
 def connect_wifi_mqtt(ssid="Mamba", pw="We8r21u7"):
     """
@@ -92,11 +97,13 @@ def check_sensors(val):
 def send_mqtt(values):
     """
     """
+    global counter_mqtt
+    id = str(values[15])
     if not values[length_values]:
         for j in range(length_values):
             try:
-                CLIENT.publish(topic=_TOPICS[j], msg=str(values[j]))
-                CLIENT.publish(topic=_Failed_times, msg=str(counter_mqtt))
+                CLIENT.publish(topic=_TOPICS[j].format(id=id), msg=str(values[j]))
+                CLIENT.publish(topic=_Failed_times.format(id=id), msg=str(counter_mqtt))
                 counter_mqtt = 0
             except:
                 counter_mqtt += 1
@@ -107,21 +114,23 @@ def send_mqtt(values):
             if i < 4:
                 if not sensor_connections[j]:
                     try:
-                        CLIENT.publish(topic=_TOPICS[i], msg=str(values[i]))
-                        CLIENT.publish(topic=_Failed_times, msg=str(counter_mqtt))
+                        CLIENT.publish(topic=_TOPICS[i].format(id=id), msg=str(values[i]))
+                        CLIENT.publish(topic=_Failed_times.format(id=id), msg=str(counter_mqtt))
                         counter_mqtt = 0
                     except:
                         counter_mqtt += 1
+                        pass
                     i += 1
             else:
                 if not sensor_connections[j]:
                     try:
-                        CLIENT.publish(topic=_TOPICS[i], msg=str(values[i]))
-                        CLIENT.publish(topic=_TOPICS[i+1], msg=str(values[i+1]))
-                        CLIENT.publish(topic=_Failed_times, msg=str(counter_mqtt))
+                        CLIENT.publish(topic=_TOPICS[i].format(id=id), msg=str(values[i]))
+                        CLIENT.publish(topic=_TOPICS[i+1].format(id=id), msg=str(values[i+1]))
+                        CLIENT.publish(topic=_Failed_times.format(id=id), msg=str(counter_mqtt))
                         counter_mqtt = 0
                     except:
                         counter_mqtt += 1
+                        pass
                 i += 2
     publish_failed_sensors()
 
@@ -138,12 +147,19 @@ Timer.Alarm(cb, 2.0, periodic=True)
 while True:
     recv_msg = s.recv(64)
     if wlan.isconnected():
-        values = ustruct.unpack('ffffffffffffIIII', recv_msg)
-        #If limits are broken send immediately
-        if not values[heartbeat]:
-            send_mqtt(values)
-            s.send(str(sensorboard_id))
-        elif values[heartbeat]:
+        try:
+            values = ustruct.unpack('I', recv_msg)
+            
             counter = 0
+            CLIENT.publish(topic=_Failed_times.format(id=id), msg="0")    
+        except:
+            try:
+                values = ustruct.unpack('ffffffffffffIIII', recv_msg)
+                send_mqtt(values)
+                if not values[emergency]:
+                    s.send(str(values[15]))
+                
+            except:
+                pass
     else:
         connect_wifi_mqtt()
