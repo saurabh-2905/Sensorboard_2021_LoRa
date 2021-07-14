@@ -59,22 +59,20 @@ def cb(p):
         counter_board1 += 1
         if counter_board1 == 3:
             CLIENT.publish(topic=_Failed_times.format(id=1), msg="1")
-        
     elif val_hb == 2:
         counter_board2 += 1
         if counter_board2 == 3:
             CLIENT.publish(topic=_Failed_times.format(id=2), msg="1")
-        
     elif val_hb == 3:
         counter_board3 += 1
         if counter_board3 == 3:
             CLIENT.publish(topic=_Failed_times.format(id=3), msg="1")
-        
     elif val_hb == 4:
         counter_board4 += 1
         if counter_board4 == 3:
-            CLIENT.publish(topic=_Failed_times.format(id=4), msg="1")   
-        
+            CLIENT.publish(topic=_Failed_times.format(id=4), msg="1")
+
+
 def connect_wifi_mqtt(ssid="Mamba", pw="We8r21u7"):
     """
     """
@@ -83,7 +81,7 @@ def connect_wifi_mqtt(ssid="Mamba", pw="We8r21u7"):
     try:
         CLIENT.connect()
     except:
-        print("error")
+        pass
 
 
 def set_failed_sensor(number, val):
@@ -168,11 +166,10 @@ while True:
             values = ustruct.unpack('ffffffffffffIIII', recv_msg)
             send_mqtt(values)
             if not values[emergency]:
-                s.send(str(values[15]))   
+                s.send(str(values[15])) 
         except:
             try:
                 val_hb = ustruct.unpack('I', recv_msg)[0]
-                print(val_hb)
                 if val_hb == 1:
                     counter_board1 = 0
                     CLIENT.publish(topic=_Failed_times.format(id=1), msg="0")
