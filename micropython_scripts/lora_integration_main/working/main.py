@@ -20,7 +20,7 @@ micropython.alloc_emergency_exception_buf(100)
 
 # addresses of sensors
 O2_ADRR = const(0x48)
-CO_ADRR = const(0x49)
+CO_ADRR = const(0x49) 
 SCD30_ADRR = const(0x61)
 AM2301_1_ADRR = const(0)
 AM2301_2_ADRR = const(4)
@@ -187,7 +187,7 @@ def cb_lora(p):
 
 
 THRESHOLD_LIMITS = ((0.0, 1000.0), (0.0, 20.0), (19.5, 23.0), (1010.0, 1040.0),
-                    (18.0, 30.0, 0.0, 100.0))
+                    (18.0, 20.0, 0.0, 100.0))
 
 CONNECTION_VAR = [CONNECTION_CO2, CONNECTION_CO, CONNECTION_O2,
                   CONNECTION_BMP, CONNECTION_A1, CONNECTION_A2,
@@ -267,5 +267,7 @@ while True:
                        LIMITS_BROKEN, 0, SENSORBOARD_ID)
 
     if LIMITS_BROKEN:
+        for i in range(len(SENSOR_DATA)):
+            print(SENSOR_DATA[i])
         lora.send(msg)
         lora.recv()

@@ -164,6 +164,7 @@ while True:
     if wlan.isconnected():
         try:
             values = ustruct.unpack('ffffffffffffIIII', recv_msg)
+            print(values)
             send_mqtt(values)
             if not values[emergency]:
                 s.send(str(values[15])) 
