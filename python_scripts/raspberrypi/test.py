@@ -1,9 +1,10 @@
 from time import sleep
 from SX127x.LoRa import *
 from SX127x.board_config import BOARD
+
 BOARD.setup()
 
-import struct, time, binascii,
+import struct, time, binascii
 
 # Tuple with MQTT topics
 _TOPICS = ("board{id}/co2_scd", "board{id}/co", "board{id}/o2", "board{id}/amb_press",
@@ -12,11 +13,11 @@ _TOPICS = ("board{id}/co2_scd", "board{id}/co", "board{id}/o2", "board{id}/amb_p
            "board{id}/temp4_am", "board{id}/humid4_am")
 
 _Failed_times = "board{id}/active_status"
-comp_const = const(1)
-length_failed_sensors = const(8)
-length_values = const(12) #12 sensor readings+sensor board number+heartbeat+limits broken
-emergency = const(13)
-heartbeat = const(14)
+comp_const = 1
+length_failed_sensors = 8
+length_values = 12 #12 sensor readings+sensor board number+heartbeat+limits broken
+emergency = 13
+heartbeat = 14
 counter_board1 = 0
 counter_board2 = 0
 counter_board3 = 0

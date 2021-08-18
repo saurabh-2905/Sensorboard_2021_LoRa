@@ -265,7 +265,7 @@ while True:
                        SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
                        SENSOR_DATA[13], SENSOR_STATUS,
                        LIMITS_BROKEN, 0, SENSORBOARD_ID)
-
+    
     if LIMITS_BROKEN:
         lora.send(msg)
         lora.recv()
