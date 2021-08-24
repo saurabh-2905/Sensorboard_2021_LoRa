@@ -7,8 +7,9 @@
 # -------------------------------------------------------------------------------
 import paho.mqtt.client as mqtt
 
-import lora
+import loralib as lora
 import threading
+import time
 import struct
 
 # Tuple with MQTT topics
@@ -42,6 +43,8 @@ CLIENT = mqtt.Client()
 
 
 def cb():
+    """
+    """
     global counter_board1, counter_board2, counter_board3, counter_board4
     if val_hb == 1:
         counter_board1 += 1
@@ -60,7 +63,33 @@ def cb():
         if counter_board4 == 3:
             CLIENT.publish(topic=_Failed_times.format(id=4), payload="1")
 
+            
+def lora_init():
+    """
+    """
+    lora.init(868000000, 7)
 
+        
+def receive():
+    """
+    """
+    lora.changemode(1)
+    while True:
+        msg = lora.recv()[0]
+        if msg:
+            return msg
+            break
+
+                    
+def send(msg):
+    """
+    """
+    lora.changemode(0)
+    if isinstance(msg, str):
+        msg = msg.encode()
+    lora.send(msg)
+
+        
 def connect_mqtt():
     """
     """
@@ -145,22 +174,25 @@ def timer_start():
 
 # Connect WIFI and MQTT
 
-
+lora_init()
 connect_mqtt()
 timer_start()
 
 # Start of loop
 while True:
-    recv_msg = lora.receive()
+    recv_msg = receive()
     try:
         values = struct.unpack('ffffffffffffIIII', recv_msg)
         print(values)
         send_mqtt(values)
         if not values[emergency]:
-            lora.send(str(values[15]))
+            time.sleep(0.05)  # OPTIMIZE! 
+            send(str(values[15]))
+            print("SEND")
     except:
         try:
             val_hb = struct.unpack('I', recv_msg)[0]
+            print(val_hb)
             if val_hb == 1:
                 counter_board1 = 0
                 CLIENT.publish(topic=_Failed_times.format(id=1), payload="0")
