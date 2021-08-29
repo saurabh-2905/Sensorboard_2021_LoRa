@@ -235,63 +235,6 @@ while True:
                     scd_co2, scd_temp, scd_hum = reading_co2
                     if not (THRESHOLD_LIMITS[i][0] <= scd_co2 <= THRESHOLD_LIMITS[i][1]):
                         LIMITS_BROKEN = 1
-                SENSOR_DATA[0] = round(scd_co2, 2)
-                SENSOR_DATA[1] = round(scd_temp, 2)
-                SENSOR_DATA[2] = round(scd_hum, 2)
-            elif 1 <= i <= 3:
-                # MCP3221, BMP180 sensor reading
-                var = func_call()
-                if not (THRESHOLD_LIMITS[i][0] <= var <= THRESHOLD_LIMITS[i][1]):
-                    LIMITS_BROKEN = 1
-                SENSOR_DATA[i+2] = var
-            else:
-                # AM2301 readings(involves 2 values)
-                am_temp, am_hum = func_call()
-                if not (THRESHOLD_LIMITS[4][0] <= am_temp <= THRESHOLD_LIMITS[4][1]):
-                    LIMITS_BROKEN = 1
-                if not (THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]):
-                    LIMITS_BROKEN = 1
-                SENSOR_DATA[j] = am_temp
-                SENSOR_DATA[j+1] = am_hum
-                j += 2
-            if CONNECTION_VAR[i] == 0:
-                CONNECTION_VAR[i] = 1
-        except Exception:
-            CONNECTION_VAR[i] = 0
-
-        if not CONNECTION_VAR[i]:
-            # Sensor failed
-            if i == 0:
-                SENSOR_STATUS = 2**(i)
-            elif 1 <= i <= 3:
-                SENSOR_STATUS += 2**(i)
-            else:
-                SENSOR_STATUS += 2**(i)
-    msg = ustruct.pack('ffffffffffffIIII', SENSOR_DATA[0], SENSOR_DATA[3],
-                       SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
-                       SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
-                       SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
-                       SENSOR_DATA[13], SENSOR_STATUS,
-                       LIMITS_BROKEN, 0, SENSORBOARD_ID)
-    
-    if LIMITS_BROKEN:
-        lora.send(msg)
-        lora.recv()
-SENSOR_STATUS = 0
-    LIMITS_BROKEN = 0
-    j = 6
-
-    for i in range(len(CONNECTION_VAR)):
-        # Sensor Data is available & sensor is working
-        func_call = FUNC_VAR[i]
-        try:
-            if i == 0:
-                # SCD30 sensor readings(involves three values)
-                reading_co2 = func_call()
-                if not reading_co2[0] == -1:
-                    scd_co2, scd_temp, scd_hum = reading_co2
-                    if not (THRESHOLD_LIMITS[i][0] <= scd_co2 <= THRESHOLD_LIMITS[i][1]):
-                        LIMITS_BROKEN = 1
                 SENSOR_DATA[0] = round(scd_co2, 2) * 100 #converting to integer
                 SENSOR_DATA[1] = round(scd_temp, 2)
                 SENSOR_DATA[2] = round(scd_hum, 2)
@@ -334,60 +277,5 @@ SENSOR_STATUS = 0
     if LIMITS_BROKEN:
         lora.send(msg)
         lora.recv()
-SENSOR_STATUS = 0
-    LIMITS_BROKEN = 0
-    j = 6
 
-    for i in range(len(CONNECTION_VAR)):
-        # Sensor Data is available & sensor is working
-        func_call = FUNC_VAR[i]
-        try:
-            if i == 0:
-                # SCD30 sensor readings(involves three values)
-                reading_co2 = func_call()
-                if not reading_co2[0] == -1:
-                    scd_co2, scd_temp, scd_hum = reading_co2
-                    if not (THRESHOLD_LIMITS[i][0] <= scd_co2 <= THRESHOLD_LIMITS[i][1]):
-                        LIMITS_BROKEN = 1
-                SENSOR_DATA[0] = round(scd_co2, 2) * 100 #converting to integer
-                SENSOR_DATA[1] = round(scd_temp, 2)
-                SENSOR_DATA[2] = round(scd_hum, 2)
-            elif 1 <= i <= 3:
-                # MCP3221, BMP180 sensor reading
-                var = func_call()
-                if not (THRESHOLD_LIMITS[i][0] <= var <= THRESHOLD_LIMITS[i][1]):
-                    LIMITS_BROKEN = 1
-                SENSOR_DATA[i+2] = round(var,2) * 100  #converting to integer
-            else:
-                # AM2301 readings(involves 2 values)
-                am_temp, am_hum = func_call()
-                if not (THRESHOLD_LIMITS[4][0] <= am_temp <= THRESHOLD_LIMITS[4][1]):
-                    LIMITS_BROKEN = 1
-                if not (THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]):
-                    LIMITS_BROKEN = 1
-                SENSOR_DATA[j] = am_temp * 10  #converting to integer
-                SENSOR_DATA[j+1] = am_hum * 10  #converting to integer
-                j += 2
-            if CONNECTION_VAR[i] == 0:
-                CONNECTION_VAR[i] = 1
-        except Exception:
-            CONNECTION_VAR[i] = 0
-
-        if not CONNECTION_VAR[i]:
-            # Sensor failed
-            if i == 0:
-                SENSOR_STATUS = 2**(i)
-            elif 1 <= i <= 3:
-                SENSOR_STATUS += 2**(i)
-            else:
-                SENSOR_STATUS += 2**(i)
-    msg = ustruct.pack('IIIIIIIIIIIIIIII', SENSOR_DATA[0], SENSOR_DATA[3],
-                       SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
-                       SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
-                       SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
-                       SENSOR_DATA[13], SENSOR_STATUS,
-                       LIMITS_BROKEN, 0, SENSORBOARD_ID)
     
-    if LIMITS_BROKEN:
-        lora.send(msg)
-        lora.recv()

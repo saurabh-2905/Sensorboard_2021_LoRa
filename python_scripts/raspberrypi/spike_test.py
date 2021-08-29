@@ -189,11 +189,9 @@ while True:
         #Converting to list to obtain float subsitute
         l = list(values)
         for i in l:
-            if num = 0:
+            if num <= 3:
                 l[num] = i/100
-            elif num <= 3:
-                l[num] = i/100
-            else:
+            elif num <= 11:
                 l[num] = i/10              
 
         #Oxygen skipe         
