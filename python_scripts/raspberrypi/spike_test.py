@@ -103,12 +103,6 @@ def cb():
             #send("41")
 
 
-def set_failed_sensor(number, val):
-    """
-    """
-    sensor_connections[number] = val
-
-
 def publish_failed_sensors():
     """
     """
@@ -122,9 +116,10 @@ def check_sensors(val):
     """
     for i in range(length_failed_sensors):
         if val & comp_const:
-            set_failed_sensor(i, 1)
+            sensor_connections[i] = 1
+            val = val >> comp_const
         else:
-            set_failed_sensor(i, 0)
+            sensor_connections[i] = 0
             val = val >> comp_const
 
 
@@ -149,13 +144,14 @@ def send_mqtt(values):
             if i < 4:
                 if not sensor_connections[j]:
                     try:
+                        print(values[i])
                         CLIENT.publish(topic=_TOPICS[i].format(id=id), payload=str(values[i]))
                         CLIENT.publish(topic=_Failed_times.format(id=id), payload=str(counter_mqtt))
                         counter_mqtt = 0
                     except:
                         counter_mqtt += 1
                         pass
-                    i += 1
+                i += 1
             else:
                 if not sensor_connections[j]:
                     try:
@@ -166,8 +162,8 @@ def send_mqtt(values):
                     except:
                         counter_mqtt += 1
                         pass
-                    i += 2
-                    publish_failed_sensors()
+                i += 2
+        publish_failed_sensors()
 
 
 def timer_start():
@@ -187,7 +183,6 @@ while True:
     recv_msg = receive()
     try:
         values = struct.unpack('IIIIiIiIiIiIIIII', recv_msg)
-
         #Converting to list to obtain float subsitute
         l = list(values)
         for i in range(len(l)):
