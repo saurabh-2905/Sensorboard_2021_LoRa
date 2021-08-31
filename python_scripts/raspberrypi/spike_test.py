@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika U.
-# date: 30.05.2020
+# date: 31.08.2021
 # function: Implentation of a LoRa receiving LoPy, which after receiving checks
 #           if any of the received data is not valid. If any data is not valid
 #           it wont be send via MQTT, otherwise it will.
@@ -29,7 +29,6 @@ counter_board2 = 0
 counter_board3 = 0
 counter_board4 = 0
 val_hb = 0
-num = 0
 
 sensor_connections = [0, 0, 0, 0, 0, 0, 0, 0]
 
@@ -183,26 +182,26 @@ timer_start()
 while True:
     recv_msg = receive()
     try:
-        values = struct.unpack('IIIIIIIIIIIIIIII', recv_msg)
-        print(values)
+        values = struct.unpack('IIIIiIiIiIiIIIII', recv_msg)
 
         #Converting to list to obtain float subsitute
         l = list(values)
-        for i in l:
-            if num <= 3:
-                l[num] = i/100
-            elif num <= 11:
-                l[num] = i/10              
-
-        #Oxygen skipe         
-        if values[2] < 10**20 * 20:
-            send_mqtt(values)
-        else:
-            print(values) #TODO : do something
-        if not values[emergency]:
+        for i in range(len(l)):
+            if i <= 3:
+                l[i] = l[i]/100
+            elif i <= 11:
+                l[i] = l[i]/10              
+        print(l)
+        # prevent spikes         
+        if l[0] < 0 or l[1] < 0 or l[2] > 100 or l[2] < 0 or l[3] < 0 or l[5] > 100 or l[5] < 0 or l[7] > 100 or l[7] < 0 or l[9] > 100 or l[9] < 0 or l[11] > 100 or l[11] < 0 or l[12] > 255 or l[12] < 0 or l[13] < 0 or l[13] > 1 or l[15] > 4 or l[15] < 1:
             time.sleep(0.05)  # OPTIMIZE! 
-            send(str(values[15]))
+            send(str(l[15]))
+        else:
+            send_mqtt(l)
+            time.sleep(0.05)  # OPTIMIZE! 
+            send(str(l[15]))
             print("SEND")
+
     except:
         try:
             val_hb = struct.unpack('I', recv_msg)[0]
