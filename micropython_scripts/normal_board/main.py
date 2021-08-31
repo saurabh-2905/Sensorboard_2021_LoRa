@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Malavika U, Florian Stechmann
-# date: 30.06.2021
+# date: 31.08.2021
 # function:
 # -------------------------------------------------------------------------------
 
@@ -168,14 +168,6 @@ def cb_30(p):
     uheapq.heappush(que, msg)
     lora.send(que[0])
     lora.recv()
-    
-
-def cb_4(p):
-    """
-    """
-    uheapq.heappush(que, msg)
-    lora.send(que[0])
-    lora.recv()
 
 
 def cb_hb(p):
@@ -190,7 +182,7 @@ def cb_lora(p):
     """
     try:
         rcv_msg = p.decode()
-        if rcv_msg == 1:
+        if rcv_msg == SENSORBOARD_ID:
              uheapq.heappop(que)            
     except Exception:
         pass
@@ -217,7 +209,6 @@ msg = ""
 
 timer0.init(period=30000, mode=Timer.PERIODIC, callback=cb_30)
 timer1.init(period=2000, mode=Timer.PERIODIC, callback=cb_hb)
-#timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_4) #4 minute update
 
 SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 

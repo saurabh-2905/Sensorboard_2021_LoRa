@@ -26,8 +26,10 @@ AM2301_1_ADRR = const(0)
 AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
-SENSORBOARD_ID = const(2) #board2 hence 2
-HEARTBEAT = const(2) 
+SENSORBOARD_ID = const(3) #board2 hence 2
+HEARTBEAT = const(2)
+EMERGENCY_CODE = const(11)
+NO_EMERGENCY_CODE = const(12)
 
 heartbeat_msg = ustruct.pack('I', SENSORBOARD_ID)
 
@@ -47,6 +49,8 @@ scd_hum = 0
 am_temp = 0  # did not previously initialise this variable
 am_hum = 0  # did not previously initialise this variable
 que = []
+
+EMERGENCY_STATUS = 0
 
 # establish I2c Bus
 try:
@@ -188,7 +192,18 @@ def cb_lora(p):
     """
     """
     try:
-        uheapq.heappop(que)
+        rcv_msg = int(p.decode())
+        if rcv_msg == SENSORBOARD_ID:
+            uheapq.heappop(que)
+        elif rcv_msg == EMERGENCY_CODE:
+            EMERGENCY_STATUS = 1
+            timer0.deinit()
+            timer2.init(period=30000, mode=Timer.PERIODIC, callback=cb_30)
+        elif rcv_msg == NO_EMERGENCY_CODE and EMERGENCY_STAT:
+            timer2.deinit()
+            timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_4)
+        else:
+            pass
     except Exception:
         pass
 
@@ -212,7 +227,7 @@ timer1 = Timer(1)
 
 msg = ""
 
-#timer0.init(period=30000, mode=Timer.PERIODIC, callback=cb_30)
+
 timer1.init(period=2000, mode=Timer.PERIODIC, callback=cb_hb)
 timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_4) #4 minute update
 

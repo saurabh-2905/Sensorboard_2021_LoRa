@@ -41,28 +41,6 @@ CLIENT = mqtt.Client()
 
 # Callback function to trace heartbeat packet loss
 
-
-def cb():
-    """
-    """
-    global counter_board1, counter_board2, counter_board3, counter_board4
-    if val_hb == 1:
-        counter_board1 += 1
-        if counter_board1 == 3:
-            CLIENT.publish(topic=_Failed_times.format(id=1), payload="1")
-    elif val_hb == 2:
-        counter_board2 += 1
-        if counter_board2 == 3:
-            CLIENT.publish(topic=_Failed_times.format(id=2), payload="1")
-    elif val_hb == 3:
-        counter_board3 += 1
-        if counter_board3 == 3:
-            CLIENT.publish(topic=_Failed_times.format(id=3), payload="1")
-    elif val_hb == 4:
-        counter_board4 += 1
-        if counter_board4 == 3:
-            CLIENT.publish(topic=_Failed_times.format(id=4), payload="1")
-
             
 def lora_init():
     """
@@ -97,6 +75,32 @@ def connect_mqtt():
         CLIENT.connect(MQTT_SERVER)
     except:
         pass
+
+
+def cb():
+    """
+    """
+    global counter_board1, counter_board2, counter_board3, counter_board4
+    if val_hb == 1:
+        counter_board1 += 1
+        if counter_board1 == 3:
+            CLIENT.publish(topic=_Failed_times.format(id=1), payload="1")
+            send("11")
+    elif val_hb == 2:
+        counter_board2 += 1
+        if counter_board2 == 3:
+            CLIENT.publish(topic=_Failed_times.format(id=2), payload="1")
+            send("21")
+    elif val_hb == 3:
+        counter_board3 += 1
+        if counter_board3 == 3:
+            CLIENT.publish(topic=_Failed_times.format(id=3), payload="1")
+            #send("31")
+    elif val_hb == 4:
+        counter_board4 += 1
+        if counter_board4 == 3:
+            CLIENT.publish(topic=_Failed_times.format(id=4), payload="1")
+            #send("41")
 
 
 def set_failed_sensor(number, val):
@@ -209,15 +213,19 @@ while True:
             if val_hb == 1:
                 counter_board1 = 0
                 CLIENT.publish(topic=_Failed_times.format(id=1), payload="0")
+                send("12")
             elif val_hb == 2:
                 counter_board2 = 0
                 CLIENT.publish(topic=_Failed_times.format(id=2), payload="0")
+                send("22")
             elif val_hb == 3:
                 counter_board3 = 0
                 CLIENT.publish(topic=_Failed_times.format(id=3), payload="0")
+                send("32")
             elif val_hb == 4:
                 counter_board4 = 0
                 CLIENT.publish(topic=_Failed_times.format(id=4), payload="0")
+                send("42")
         except:
             pass
 
