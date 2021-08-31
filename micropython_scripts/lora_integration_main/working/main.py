@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Malavika U, Florian Stechmann
-# date: 30.06.2020
+# date: 30.06.2021
 # function:
 # -------------------------------------------------------------------------------
 
@@ -20,13 +20,13 @@ micropython.alloc_emergency_exception_buf(100)
 
 # addresses of sensors
 O2_ADRR = const(0x48)
-CO_ADRR = const(0x49) 
+CO_ADRR = const(0x49)
 SCD30_ADRR = const(0x61)
 AM2301_1_ADRR = const(0)
 AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
-SENSORBOARD_ID = const(1)
+SENSORBOARD_ID = const(2)
 HEARTBEAT = const(1)
 
 heartbeat_msg = ustruct.pack('I', SENSORBOARD_ID)
@@ -187,7 +187,7 @@ def cb_lora(p):
 
 
 THRESHOLD_LIMITS = ((0.0, 1000.0), (0.0, 20.0), (19.5, 23.0), (1010.0, 1040.0),
-                    (18.0, 20.0, 0.0, 100.0))
+                    (18.0, 30.0, 0.0, 100.0))
 
 CONNECTION_VAR = [CONNECTION_CO2, CONNECTION_CO, CONNECTION_O2,
                   CONNECTION_BMP, CONNECTION_A1, CONNECTION_A2,
@@ -208,11 +208,13 @@ msg = ""
 timer0.init(period=30000, mode=Timer.PERIODIC, callback=cb_30)
 timer1.init(period=2000, mode=Timer.PERIODIC, callback=cb_hb)
 
+SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
 # infinite loop execution
 while True:
     SENSOR_STATUS = 0
-    SENSOR_DATA = []
     LIMITS_BROKEN = 0
+    j = 6
 
     for i in range(len(CONNECTION_VAR)):
         # Sensor Data is available & sensor is working
@@ -225,15 +227,15 @@ while True:
                     scd_co2, scd_temp, scd_hum = reading_co2
                     if not (THRESHOLD_LIMITS[i][0] <= scd_co2 <= THRESHOLD_LIMITS[i][1]):
                         LIMITS_BROKEN = 1
-                SENSOR_DATA.extend((round(scd_co2, 2),
-                                    round(scd_temp, 2),
-                                    round(scd_hum, 2)))
+                SENSOR_DATA[0] = round(scd_co2, 2)
+                SENSOR_DATA[1] = round(scd_temp, 2)
+                SENSOR_DATA[2] = round(scd_hum, 2)
             elif 1 <= i <= 3:
                 # MCP3221, BMP180 sensor reading
                 var = func_call()
                 if not (THRESHOLD_LIMITS[i][0] <= var <= THRESHOLD_LIMITS[i][1]):
                     LIMITS_BROKEN = 1
-                SENSOR_DATA.append(round(var, 2))
+                SENSOR_DATA[i+2] = var
             else:
                 # AM2301 readings(involves 2 values)
                 am_temp, am_hum = func_call()
@@ -241,8 +243,9 @@ while True:
                     LIMITS_BROKEN = 1
                 if not (THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]):
                     LIMITS_BROKEN = 1
-                SENSOR_DATA.append(am_temp)
-                SENSOR_DATA.append(am_hum)
+                SENSOR_DATA[j] = am_temp
+                SENSOR_DATA[j+1] = am_hum
+                j += 2
             if CONNECTION_VAR[i] == 0:
                 CONNECTION_VAR[i] = 1
         except Exception:
@@ -251,13 +254,10 @@ while True:
         if not CONNECTION_VAR[i]:
             # Sensor failed
             if i == 0:
-                SENSOR_DATA.extend((0, 0, 0))  # SCD30 involves three readings
                 SENSOR_STATUS = 2**(i)
             elif 1 <= i <= 3:
-                SENSOR_DATA.append(0)  # Sensors other than SCD30
                 SENSOR_STATUS += 2**(i)
             else:
-                SENSOR_DATA.extend((0, 0))  # Sensors other than SCD30
                 SENSOR_STATUS += 2**(i)
     msg = ustruct.pack('ffffffffffffIIII', SENSOR_DATA[0], SENSOR_DATA[3],
                        SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
@@ -265,9 +265,7 @@ while True:
                        SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
                        SENSOR_DATA[13], SENSOR_STATUS,
                        LIMITS_BROKEN, 0, SENSORBOARD_ID)
-
+    
     if LIMITS_BROKEN:
-        for i in range(len(SENSOR_DATA)):
-            print(SENSOR_DATA[i])
         lora.send(msg)
         lora.recv()
