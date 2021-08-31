@@ -4,6 +4,8 @@
 # function:
 # -------------------------------------------------------------------------------
 
+#For board3
+
 # import libraries
 from machine import Pin, I2C, SoftSPI, Timer
 import micropython
@@ -199,7 +201,7 @@ def cb_lora(p):
             EMERGENCY_STATUS = 1
             timer0.deinit()
             timer2.init(period=30000, mode=Timer.PERIODIC, callback=cb_30)
-        elif rcv_msg == NO_EMERGENCY_CODE and EMERGENCY_STAT:
+        elif rcv_msg == NO_EMERGENCY_CODE and EMERGENCY_STATUS:
             timer2.deinit()
             timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_4)
         else:
@@ -229,7 +231,7 @@ msg = ""
 
 
 timer1.init(period=2000, mode=Timer.PERIODIC, callback=cb_hb)
-timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_4) #4 minute update
+#timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_4) #4 minute update
 
 SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
