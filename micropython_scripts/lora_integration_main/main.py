@@ -168,8 +168,7 @@ def cb_30(p):
     uheapq.heappush(que, msg)
     lora.send(que[0])
     lora.recv()
-    print(ustruct.unpack('IIIIiIiIiIiIIIII',msg))
-
+    
 
 def cb_4(p):
     """
@@ -184,7 +183,6 @@ def cb_hb(p):
     """
     lora.send(heartbeat_msg)
     lora.recv()
-    print("hb")
 
 
 def cb_lora(p):
@@ -282,6 +280,6 @@ while True:
     if LIMITS_BROKEN:
         lora.send(msg)
         lora.recv()            
-        print(ustruct.unpack('IIIIiIiIiIiIIIII',msg))
+       
 
     
