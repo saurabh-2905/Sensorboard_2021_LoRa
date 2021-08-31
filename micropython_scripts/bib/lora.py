@@ -58,10 +58,10 @@ class LoRa:
             raise Exception('Invalid version or bad SPI connection')
         self.sleep()
         self.set_frequency(kw.get('frequency', 868.0))
-        self.set_bandwidth(kw.get('bandwidth', 250000))
-        self.set_spreading_factor(kw.get('spreading_factor', 10))
+        self.set_bandwidth(kw.get('bandwidth', 125000)) # changed from 250E3
+        self.set_spreading_factor(kw.get('spreading_factor', 7)) # changed from 10
         self.set_coding_rate(kw.get('coding_rate', 5))
-        self.set_preamble_length(kw.get('preamble_length', 4))
+        self.set_preamble_length(kw.get('preamble_length', 8)) # changed from 4
         self.set_crc(kw.get('crc', False))
         # set LNA boost
         self._write(REG_LNA, self._read(REG_LNA) | 0x03)
@@ -70,7 +70,7 @@ class LoRa:
         self.set_tx_power(kw.get('tx_power', 24))
         self._implicit = kw.get('implicit', False)
         self.set_implicit(self._implicit)
-        self.set_sync_word(kw.get('sync_word', 0x12))
+        self.set_sync_word(kw.get('sync_word', 0x34)) # changed from 0x34
         self._on_recv = kw.get('on_recv', None)
         self._write(REG_FIFO_TX_BASE_ADDR, TX_BASE_ADDR)
         self._write(REG_FIFO_RX_BASE_ADDR, RX_BASE_ADDR)
@@ -101,7 +101,7 @@ class LoRa:
 
     def set_sync(self, sync):
         self.sync = sync
-
+        
     def send(self, x):
         if isinstance(x, str):
             x = x.encode()
@@ -205,7 +205,7 @@ class LoRa:
                 self.rx.irq(handler=None, trigger=0)
 
     def recv(self):
-        self._write(REG_OP_MODE, MODE_LORA | MODE_RX_CONTINUOUS)
+        self._write(REG_OP_MODE, MODE_LORA | MODE_RX_CONTINUOUS) 
 
     def _irq_recv(self, event_source):
         f = self._get_irq_flags()

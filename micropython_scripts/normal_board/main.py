@@ -183,7 +183,7 @@ def cb_lora(p):
     try:
         rcv_msg = p.decode()
         if rcv_msg == SENSORBOARD_ID:
-             uheapq.heappop(que)            
+            uheapq.heappop(que)            
     except Exception:
         pass
 
@@ -270,7 +270,4 @@ while True:
         
     if LIMITS_BROKEN:
         lora.send(msg)
-        lora.recv()            
-       
-
-    
+        lora.recv()
