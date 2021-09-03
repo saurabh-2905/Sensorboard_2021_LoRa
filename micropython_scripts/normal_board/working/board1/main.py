@@ -1,10 +1,8 @@
 # -------------------------------------------------------------------------------
 # author: Malavika U, Florian Stechmann
-# date: 30.06.2021
+# date: 31.08.2021
 # function:
 # -------------------------------------------------------------------------------
-
-#For board3
 
 # import libraries
 from machine import Pin, I2C, SoftSPI, Timer
@@ -28,10 +26,7 @@ AM2301_1_ADRR = const(0)
 AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
-SENSORBOARD_ID = const(3) #board2 hence 2
-HEARTBEAT = const(2)
-EMERGENCY_CODE = const(11)
-NO_EMERGENCY_CODE = const(12)
+SENSORBOARD_ID = const(1)
 
 heartbeat_msg = ustruct.pack('I', SENSORBOARD_ID)
 
@@ -51,8 +46,6 @@ scd_hum = 0
 am_temp = 0  # did not previously initialise this variable
 am_hum = 0  # did not previously initialise this variable
 que = []
-
-EMERGENCY_STATUS = 0
 
 # establish I2c Bus
 try:
@@ -175,13 +168,6 @@ def cb_30(p):
     lora.send(que[0])
     lora.recv()
 
-def cb_4(p):
-    """
-    """
-    uheapq.heappush(que, msg)
-    lora.send(que[0])
-    lora.recv()
-
 
 def cb_hb(p):
     """
@@ -194,18 +180,9 @@ def cb_lora(p):
     """
     """
     try:
-        rcv_msg = int(p.decode())
-        if rcv_msg == SENSORBOARD_ID:
-            uheapq.heappop(que)
-        elif rcv_msg == EMERGENCY_CODE:
-            EMERGENCY_STATUS = 1
-            timer0.deinit()
-            timer2.init(period=30000, mode=Timer.PERIODIC, callback=cb_30)
-        elif rcv_msg == NO_EMERGENCY_CODE and EMERGENCY_STATUS:
-            timer2.deinit()
-            timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_4)
-        else:
-            pass
+        rcv_msg = p.decode()
+        if int(rcv_msg) == SENSORBOARD_ID:
+            uheapq.heappop(que)            
     except Exception:
         pass
 
@@ -229,9 +206,8 @@ timer1 = Timer(1)
 
 msg = ""
 
-
+timer0.init(period=30000, mode=Timer.PERIODIC, callback=cb_30)
 timer1.init(period=2000, mode=Timer.PERIODIC, callback=cb_hb)
-#timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_4) #4 minute update
 
 SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
@@ -252,7 +228,7 @@ while True:
                     scd_co2, scd_temp, scd_hum = reading_co2
                     if not (THRESHOLD_LIMITS[i][0] <= scd_co2 <= THRESHOLD_LIMITS[i][1]):
                         LIMITS_BROKEN = 1
-                SENSOR_DATA[0] = round(scd_co2, 2) * 100 #converting to integer
+                SENSOR_DATA[0] = int(round(scd_co2, 2) * 100) #converting to integer
                 SENSOR_DATA[1] = round(scd_temp, 2)
                 SENSOR_DATA[2] = round(scd_hum, 2)
             elif 1 <= i <= 3:
@@ -260,7 +236,7 @@ while True:
                 var = func_call()
                 if not (THRESHOLD_LIMITS[i][0] <= var <= THRESHOLD_LIMITS[i][1]):
                     LIMITS_BROKEN = 1
-                SENSOR_DATA[i+2] = round(var,2) * 100  #converting to integer
+                SENSOR_DATA[i+2] = int(round(var, 2) * 100)  #converting to integer
             else:
                 # AM2301 readings(involves 2 values)
                 am_temp, am_hum = func_call()
@@ -268,8 +244,8 @@ while True:
                     LIMITS_BROKEN = 1
                 if not (THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]):
                     LIMITS_BROKEN = 1
-                SENSOR_DATA[j] = am_temp * 10  #converting to integer
-                SENSOR_DATA[j+1] = am_hum * 10  #converting to integer
+                SENSOR_DATA[j] = int(am_temp * 10)  #converting to integer
+                SENSOR_DATA[j+1] = int(am_hum * 10)  #converting to integer
                 j += 2
             if CONNECTION_VAR[i] == 0:
                 CONNECTION_VAR[i] = 1
@@ -284,13 +260,13 @@ while True:
                 SENSOR_STATUS += 2**(i)
             else:
                 SENSOR_STATUS += 2**(i)
-    msg = ustruct.pack('IIIIIIIIIIIIIIII', SENSOR_DATA[0], SENSOR_DATA[3],
+    msg = ustruct.pack('IIIIiIiIiIiIIIII', SENSOR_DATA[0], SENSOR_DATA[3],
                        SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
                        SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
                        SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
                        SENSOR_DATA[13], SENSOR_STATUS,
                        LIMITS_BROKEN, 0, SENSORBOARD_ID)
-    
+        
     if LIMITS_BROKEN:
         lora.send(msg)
         lora.recv()
