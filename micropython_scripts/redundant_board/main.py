@@ -28,8 +28,7 @@ AM2301_1_ADRR = const(0)
 AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
-SENSORBOARD_ID = const(3) #board2 hence 2
-HEARTBEAT = const(2)
+SENSORBOARD_ID = const(3)
 EMERGENCY_CODE = const(11)
 NO_EMERGENCY_CODE = const(12)
 
@@ -175,13 +174,6 @@ def cb_30(p):
     lora.send(que[0])
     lora.recv()
 
-def cb_4(p):
-    """
-    """
-    uheapq.heappush(que, msg)
-    lora.send(que[0])
-    lora.recv()
-
 
 def cb_hb(p):
     """
@@ -203,7 +195,8 @@ def cb_lora(p):
             timer2.init(period=30000, mode=Timer.PERIODIC, callback=cb_30)
         elif rcv_msg == NO_EMERGENCY_CODE and EMERGENCY_STATUS:
             timer2.deinit()
-            timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_4)
+            timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_30)
+            EMERGENCY_STATUS = 0
         else:
             pass
     except Exception:
@@ -220,18 +213,19 @@ CONNECTION_VAR = [CONNECTION_CO2, CONNECTION_CO, CONNECTION_O2,
 FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp, measure_am1,
             measure_am2, measure_am3, measure_am4)
 
-time.sleep(10)
+time.sleep(10+SENSORBOARD_ID)
 
 lora.on_recv(cb_lora)
 
 timer0 = Timer(0)
 timer1 = Timer(1)
+timer2 = Timer(2)
 
 msg = ""
 
 
-timer1.init(period=2000, mode=Timer.PERIODIC, callback=cb_hb)
-#timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_4) #4 minute update
+timer1.init(period=3500, mode=Timer.PERIODIC, callback=cb_hb)
+timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_30) #4 minute update
 
 SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
@@ -252,7 +246,7 @@ while True:
                     scd_co2, scd_temp, scd_hum = reading_co2
                     if not (THRESHOLD_LIMITS[i][0] <= scd_co2 <= THRESHOLD_LIMITS[i][1]):
                         LIMITS_BROKEN = 1
-                SENSOR_DATA[0] = round(scd_co2, 2) * 100 #converting to integer
+                SENSOR_DATA[0] = round(scd_co2, 2) #converting to integer
                 SENSOR_DATA[1] = round(scd_temp, 2)
                 SENSOR_DATA[2] = round(scd_hum, 2)
             elif 1 <= i <= 3:
@@ -260,7 +254,7 @@ while True:
                 var = func_call()
                 if not (THRESHOLD_LIMITS[i][0] <= var <= THRESHOLD_LIMITS[i][1]):
                     LIMITS_BROKEN = 1
-                SENSOR_DATA[i+2] = round(var,2) * 100  #converting to integer
+                SENSOR_DATA[i+2] = round(var, 2)  #converting to integer
             else:
                 # AM2301 readings(involves 2 values)
                 am_temp, am_hum = func_call()
@@ -268,8 +262,8 @@ while True:
                     LIMITS_BROKEN = 1
                 if not (THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]):
                     LIMITS_BROKEN = 1
-                SENSOR_DATA[j] = am_temp * 10  #converting to integer
-                SENSOR_DATA[j+1] = am_hum * 10  #converting to integer
+                SENSOR_DATA[j] = am_temp  #converting to integer
+                SENSOR_DATA[j+1] = am_hum  #converting to integer
                 j += 2
             if CONNECTION_VAR[i] == 0:
                 CONNECTION_VAR[i] = 1
@@ -284,7 +278,7 @@ while True:
                 SENSOR_STATUS += 2**(i)
             else:
                 SENSOR_STATUS += 2**(i)
-    msg = ustruct.pack('IIIIIIIIIIIIIIII', SENSOR_DATA[0], SENSOR_DATA[3],
+    msg = ustruct.pack('ffffffffffffIIII', SENSOR_DATA[0], SENSOR_DATA[3],
                        SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
                        SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
                        SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
