@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika U.
-# date: 30.05.2020
+# date: 31.08.2021
 # function: Implentation of a LoRa receiving LoPy, which after receiving checks
 #           if any of the received data is not valid. If any data is not valid
 #           it wont be send via MQTT, otherwise it will.
@@ -30,6 +30,11 @@ counter_board3 = 0
 counter_board4 = 0
 val_hb = 0
 
+MAX_COUNT = 2
+
+emergency1 = "11"
+emergency2 = "21"
+
 sensor_connections = [0, 0, 0, 0, 0, 0, 0, 0]
 
 #global counter_mqtt
@@ -40,28 +45,6 @@ MQTT_SERVER = '192.168.30.17'
 CLIENT = mqtt.Client()
 
 # Callback function to trace heartbeat packet loss
-
-
-def cb():
-    """
-    """
-    global counter_board1, counter_board2, counter_board3, counter_board4
-    if val_hb == 1:
-        counter_board1 += 1
-        if counter_board1 == 3:
-            CLIENT.publish(topic=_Failed_times.format(id=1), payload="1")
-    elif val_hb == 2:
-        counter_board2 += 1
-        if counter_board2 == 3:
-            CLIENT.publish(topic=_Failed_times.format(id=2), payload="1")
-    elif val_hb == 3:
-        counter_board3 += 1
-        if counter_board3 == 3:
-            CLIENT.publish(topic=_Failed_times.format(id=3), payload="1")
-    elif val_hb == 4:
-        counter_board4 += 1
-        if counter_board4 == 3:
-            CLIENT.publish(topic=_Failed_times.format(id=4), payload="1")
 
             
 def lora_init():
@@ -99,10 +82,26 @@ def connect_mqtt():
         pass
 
 
-def set_failed_sensor(number, val):
+def cb():
     """
     """
-    sensor_connections[number] = val
+    global counter_board1, counter_board2, counter_board3, counter_board4
+    counter_board1 += 1
+    if counter_board1 == MAX_COUNT:
+        CLIENT.publish(topic=_Failed_times.format(id=1), payload="1")
+        #send(emergency1)
+    counter_board2 += 1
+    if counter_board2 == MAX_COUNT:
+        CLIENT.publish(topic=_Failed_times.format(id=2), payload="1")
+        #send(emergency2)
+    counter_board3 += 1
+    if counter_board3 == MAX_COUNT:
+        CLIENT.publish(topic=_Failed_times.format(id=3), payload="1")
+        #send("31")
+    counter_board4 += 1
+    if counter_board4 == MAX_COUNT:
+        CLIENT.publish(topic=_Failed_times.format(id=4), payload="1")
+        #send("41")
 
 
 def publish_failed_sensors():
@@ -118,10 +117,11 @@ def check_sensors(val):
     """
     for i in range(length_failed_sensors):
         if val & comp_const:
-            set_failed_sensor(i, 1)
+            sensor_connections[i] = 1
+            val = val >> comp_const
         else:
-            set_failed_sensor(i, 0)
-        val = val >> comp_const
+            sensor_connections[i] = 0
+            val = val >> comp_const
 
 
 def send_mqtt(values):
@@ -151,7 +151,7 @@ def send_mqtt(values):
                     except:
                         counter_mqtt += 1
                         pass
-                    i += 1
+                i += 1
             else:
                 if not sensor_connections[j]:
                     try:
@@ -163,7 +163,7 @@ def send_mqtt(values):
                         counter_mqtt += 1
                         pass
                 i += 2
-    publish_failed_sensors()
+        publish_failed_sensors()
 
 
 def timer_start():
@@ -183,12 +183,25 @@ while True:
     recv_msg = receive()
     try:
         values = struct.unpack('ffffffffffffIIII', recv_msg)
-        print(values)
-        send_mqtt(values)
-        if not values[emergency]:
+        #Converting to list to obtain float subsitute
+        l = list(values)
+        for i in range(len(l)):
+            if i <= 3:
+                l[i] = round(l[i], 2)
+            elif i <= 11:
+                l[i] = round(l[i], 1)              
+        print(l)
+        # prevent spikes         
+        if l[0] < 0 or l[1] < 0 or l[2] > 100 or l[2] < 0 or l[3] < 0 or l[5] > 100 or l[5] < 0 or l[7] > 100 or l[7] < 0 or l[9] > 100 or l[9] < 0 or l[11] > 100 or l[11] < 0 or l[12] > 255 or l[12] < 0 or l[13] < 0 or l[13] > 1 or l[15] > 4 or l[15] < 1:
             time.sleep(0.05)  # OPTIMIZE! 
-            send(str(values[15]))
+            send(str(l[15]))
             print("SEND")
+        else:
+            send_mqtt(l)
+            time.sleep(0.05)  # OPTIMIZE! 
+            send(str(l[15]))
+            print("SEND")
+
     except:
         try:
             val_hb = struct.unpack('I', recv_msg)[0]
@@ -196,14 +209,21 @@ while True:
             if val_hb == 1:
                 counter_board1 = 0
                 CLIENT.publish(topic=_Failed_times.format(id=1), payload="0")
+                send("12")
             elif val_hb == 2:
                 counter_board2 = 0
                 CLIENT.publish(topic=_Failed_times.format(id=2), payload="0")
+                send("22")
             elif val_hb == 3:
                 counter_board3 = 0
                 CLIENT.publish(topic=_Failed_times.format(id=3), payload="0")
+                send("32")
             elif val_hb == 4:
                 counter_board4 = 0
                 CLIENT.publish(topic=_Failed_times.format(id=4), payload="0")
+                send("42")
         except:
             pass
+
+
+
