@@ -29,8 +29,7 @@ AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
 SENSORBOARD_ID = const(3)
-EMERGENCY_CODE = const(11)
-NO_EMERGENCY_CODE = const(12)
+REDUNDANT_HEARTBEAT = const(1)
 
 heartbeat_msg = ustruct.pack('I', SENSORBOARD_ID)
 
@@ -50,6 +49,8 @@ scd_hum = 0
 am_temp = 0  # did not previously initialise this variable
 am_hum = 0  # did not previously initialise this variable
 que = []
+
+counter_redundancy = 0
 
 EMERGENCY_STATUS = 0
 
@@ -185,22 +186,41 @@ def cb_hb(p):
 def cb_lora(p):
     """
     """
+    global counter_redundancy
     try:
         rcv_msg = int(p.decode())
         if rcv_msg == SENSORBOARD_ID:
             uheapq.heappop(que)
-        elif rcv_msg == EMERGENCY_CODE:
-            EMERGENCY_STATUS = 1
-            timer0.deinit()
-            timer2.init(period=30000, mode=Timer.PERIODIC, callback=cb_30)
-        elif rcv_msg == NO_EMERGENCY_CODE and EMERGENCY_STATUS:
-            timer2.deinit()
-            timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_30)
-            EMERGENCY_STATUS = 0
+        elif rcv_msg == REDUNDANT_HEARTBEAT:
+            counter_redundancy = 0
+            emergency_mode(0)
         else:
             pass
     except Exception:
         pass
+
+
+def cb_r(p):
+    """
+    """
+    global counter_redundancy
+    counter_redundancy += 1
+    if counter_redundancy == 2:
+        emergency_mode(1)
+
+
+def emergency_mode(mode):
+    """
+    """
+    global EMERGENCY_STATUS
+    if mode:
+        EMERGENCY_STATUS = 1
+        timer0.deinit()
+        timer2.init(period=30000, mode=Timer.PERIODIC, callback=cb_30)
+    elif mode == 0 and EMERGENCY_STATUS:
+        timer2.deinit()
+        timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_30)
+        EMERGENCY_STATUS = 0
 
 
 THRESHOLD_LIMITS = ((0.0, 1000.0), (0.0, 20.0), (19.5, 23.0), (1010.0, 1040.0),
@@ -220,12 +240,13 @@ lora.on_recv(cb_lora)
 timer0 = Timer(0)
 timer1 = Timer(1)
 timer2 = Timer(2)
+timer3 = Timer(3)
 
 msg = ""
 
-
+timer3.init(period=3500, mode=Timer.PERIODIC, callback=cb_r)
 timer1.init(period=3500, mode=Timer.PERIODIC, callback=cb_hb)
-timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_30) #4 minute update
+timer0.init(period=60000, mode=Timer.PERIODIC, callback=cb_30) #4 minute update
 
 SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
