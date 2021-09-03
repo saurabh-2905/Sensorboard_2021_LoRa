@@ -183,7 +183,7 @@ def cb_lora(p):
     try:
         rcv_msg = p.decode()
         if int(rcv_msg) == SENSORBOARD_ID:
-            uheapq.heappop(que)            
+            uheapq.heappop(que)
     except Exception:
         pass
 
