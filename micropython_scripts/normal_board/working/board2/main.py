@@ -26,7 +26,7 @@ AM2301_1_ADRR = const(0)
 AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
-SENSORBOARD_ID = const(1)
+SENSORBOARD_ID = const(2)
 
 heartbeat_msg = ustruct.pack('I', SENSORBOARD_ID)
 
@@ -197,7 +197,7 @@ CONNECTION_VAR = [CONNECTION_CO2, CONNECTION_CO, CONNECTION_O2,
 FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp, measure_am1,
             measure_am2, measure_am3, measure_am4)
 
-time.sleep(10+SENSORBOARD_ID)
+time.sleep(10)
 
 lora.on_recv(cb_lora)
 
@@ -207,7 +207,7 @@ timer1 = Timer(1)
 msg = ""
 
 timer0.init(period=30000, mode=Timer.PERIODIC, callback=cb_30)
-timer1.init(period=3500, mode=Timer.PERIODIC, callback=cb_hb)
+timer1.init(period=2000, mode=Timer.PERIODIC, callback=cb_hb)
 
 SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
@@ -228,7 +228,7 @@ while True:
                     scd_co2, scd_temp, scd_hum = reading_co2
                     if not (THRESHOLD_LIMITS[i][0] <= scd_co2 <= THRESHOLD_LIMITS[i][1]):
                         LIMITS_BROKEN = 1
-                SENSOR_DATA[0] = round(scd_co2, 2) #converting to integer
+                SENSOR_DATA[0] = int(round(scd_co2, 2) * 100) #converting to integer
                 SENSOR_DATA[1] = round(scd_temp, 2)
                 SENSOR_DATA[2] = round(scd_hum, 2)
             elif 1 <= i <= 3:
@@ -236,7 +236,7 @@ while True:
                 var = func_call()
                 if not (THRESHOLD_LIMITS[i][0] <= var <= THRESHOLD_LIMITS[i][1]):
                     LIMITS_BROKEN = 1
-                SENSOR_DATA[i+2] = round(var, 2)  #converting to integer
+                SENSOR_DATA[i+2] = int(round(var, 2) * 100)  #converting to integer
             else:
                 # AM2301 readings(involves 2 values)
                 am_temp, am_hum = func_call()
@@ -244,8 +244,8 @@ while True:
                     LIMITS_BROKEN = 1
                 if not (THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]):
                     LIMITS_BROKEN = 1
-                SENSOR_DATA[j] = am_temp  #converting to integer
-                SENSOR_DATA[j+1] = am_hum  #converting to integer
+                SENSOR_DATA[j] = int(am_temp * 10)  #converting to integer
+                SENSOR_DATA[j+1] = int(am_hum * 10)  #converting to integer
                 j += 2
             if CONNECTION_VAR[i] == 0:
                 CONNECTION_VAR[i] = 1
@@ -260,12 +260,13 @@ while True:
                 SENSOR_STATUS += 2**(i)
             else:
                 SENSOR_STATUS += 2**(i)
-    msg = ustruct.pack('ffffffffffffIIII', SENSOR_DATA[0], SENSOR_DATA[3],
+    msg = ustruct.pack('IIIIiIiIiIiIIIII', SENSOR_DATA[0], SENSOR_DATA[3],
                        SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
                        SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
                        SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
                        SENSOR_DATA[13], SENSOR_STATUS,
                        LIMITS_BROKEN, 0, SENSORBOARD_ID)
+        
     if LIMITS_BROKEN:
         lora.send(msg)
         lora.recv()
