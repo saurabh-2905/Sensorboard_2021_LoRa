@@ -191,13 +191,11 @@ def cb_lora(p):
         rcv_msg = int(p.decode())
         if rcv_msg == SENSORBOARD_ID:
             uheapq.heappop(que)
-        elif rcv_msg == REDUNDANT_HEARTBEAT:
+    except Exception:
+        rcv_msg = ustruct.unpack('I', p)[0]
+        if rcv_msg == REDUNDANT_HEARTBEAT:
             counter_redundancy = 0
             emergency_mode(0)
-        else:
-            pass
-    except Exception:
-        pass
 
 
 def cb_r(p):
@@ -244,9 +242,9 @@ timer3 = Timer(3)
 
 msg = ""
 
-timer3.init(period=3500, mode=Timer.PERIODIC, callback=cb_r)
+timer3.init(period=4500, mode=Timer.PERIODIC, callback=cb_r)
 timer1.init(period=3500, mode=Timer.PERIODIC, callback=cb_hb)
-timer0.init(period=60000, mode=Timer.PERIODIC, callback=cb_30) #4 minute update
+timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_30)  # 1 minute update
 
 SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
