@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika U.
-# date: 31.08.2021
+# date: 07.09.2021
 # function: Implentation of a LoRa receiving LoPy, which after receiving checks
 #           if any of the received data is not valid. If any data is not valid
 #           it wont be send via MQTT, otherwise it will.
@@ -13,12 +13,13 @@ import time
 import struct
 
 # Tuple with MQTT topics
-_TOPICS = ("board{id}/co2_scd", "board{id}/co", "board{id}/o2", "board{id}/amb_press",
-           "board{id}/temp1_am", "board{id}/humid1_am", "board{id}/temp2_am",
-           "board{id}/humid2_am", "board{id}/temp3_am", "board{id}/humid3_am",
-           "board{id}/temp4_am", "board{id}/humid4_am")
+_TOPICS = ("board{id_val}/co2_scd", "board{id_val}/co", "board{id_val}/o2", "board{id_val}/amb_press",
+           "board{id_val}/temp1_am", "board{id_val}/humid1_am", "board{id_val}/temp2_am",
+           "board{id_val}/humid2_am", "board{id_val}/temp3_am", "board{id_val}/humid3_am",
+           "board{id_val}/temp4_am", "board{id_val}/humid4_am")
 
-_Failed_times = "board{id}/active_status"
+_Failed_times = "board{id_val}/active_status"
+_Failed_sensor = "sensor{id_val}_stat_"
 comp_const = 1
 length_failed_sensors = 8
 length_values = 12  # 12 sensor readings+sensor board number+heartbeat+limits broken
@@ -32,10 +33,10 @@ val_hb = 0
 
 MAX_COUNT = 2
 
-emergency1 = "11"
-emergency2 = "21"
-
-sensor_connections = [0, 0, 0, 0, 0, 0, 0, 0]
+sensor_connections = [[0, 0, 0, 0, 0, 0, 0, 0],
+                      [0, 0, 0, 0, 0, 0, 0, 0],
+                      [0, 0, 0, 0, 0, 0, 0, 0],
+                      [0, 0, 0, 0, 0, 0, 0, 0]]
 
 #global counter_mqtt
 counter_mqtt = 0
@@ -88,35 +89,35 @@ def cb():
     global counter_board1, counter_board2, counter_board3, counter_board4
     counter_board1 += 1
     if counter_board1 == MAX_COUNT:
-        CLIENT.publish(topic=_Failed_times.format(id=1), payload="1")
+        CLIENT.publish(topic=_Failed_times.format(id_val=1), payload="1")
     counter_board2 += 1
     if counter_board2 == MAX_COUNT:
-        CLIENT.publish(topic=_Failed_times.format(id=2), payload="1")
+        CLIENT.publish(topic=_Failed_times.format(id_val=2), payload="1")
     counter_board3 += 1
     if counter_board3 == MAX_COUNT:
-        CLIENT.publish(topic=_Failed_times.format(id=3), payload="1")
+        CLIENT.publish(topic=_Failed_times.format(id_val=3), payload="1")
     counter_board4 += 1
     if counter_board4 == MAX_COUNT:
-        CLIENT.publish(topic=_Failed_times.format(id=4), payload="1")
+        CLIENT.publish(topic=_Failed_times.format(id_val=4), payload="1")
 
 
-def publish_failed_sensors():
+def publish_failed_sensors(id_val):
     """
     """
     for i in range(length_failed_sensors):
-        CLIENT.publish(topic="sensor1_stat_" + str(i),
-                       payload=str(sensor_connections[i]))
+        CLIENT.publish(topic=_Failed_sensor.format(id_val=id_val) + str(i),
+                       payload=str(sensor_connections[id_val][i]))
 
 
-def check_sensors(val):
+def check_sensors(val, id_val):
     """
     """
     for i in range(length_failed_sensors):
         if val & comp_const:
-            sensor_connections[i] = 1
+            sensor_connections[id_val][i] = 1
             val = val >> comp_const
         else:
-            sensor_connections[i] = 0
+            sensor_connections[id_val][i] = 0
             val = val >> comp_const
 
 
@@ -125,41 +126,33 @@ def send_mqtt(values):
     """
     connect_mqtt()
     global counter_mqtt
-    id = str(values[15])
+    id_val = str(values[15])
     if not values[length_values]:
         for j in range(length_values):
             try:
-                CLIENT.publish(topic=_TOPICS[j].format(id=id), payload=str(values[j]))
-                CLIENT.publish(topic=_Failed_times.format(id=id), payload=str(counter_mqtt))
-                counter_mqtt = 0
+                CLIENT.publish(topic=_TOPICS[j].format(id_val=id_val), payload=str(values[j]))
             except:
-                counter_mqtt += 1
+                pass
     else:
         check_sensors(values[length_values])
         i = 0
         for j in range(length_failed_sensors):
             if i < 4:
-                if not sensor_connections[j]:
+                if not sensor_connections[id_val-1][j]:
                     try:
-                        CLIENT.publish(topic=_TOPICS[i].format(id=id), payload=str(values[i]))
-                        CLIENT.publish(topic=_Failed_times.format(id=id), payload=str(counter_mqtt))
-                        counter_mqtt = 0
+                        CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload=str(values[i]))
                     except:
-                        counter_mqtt += 1
                         pass
                 i += 1
             else:
-                if not sensor_connections[j]:
+                if not sensor_connections[id_val-1][j]:
                     try:
-                        CLIENT.publish(topic=_TOPICS[i].format(id=id), payload=str(values[i]))
-                        CLIENT.publish(topic=_TOPICS[i+1].format(id=id), payload=str(values[i+1]))
-                        CLIENT.publish(topic=_Failed_times.format(id=id), payload=str(counter_mqtt))
-                        counter_mqtt = 0
+                        CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload=str(values[i]))
+                        CLIENT.publish(topic=_TOPICS[i+1].format(id_val=id_val), payload=str(values[i+1]))
                     except:
-                        counter_mqtt += 1
                         pass
                 i += 2
-        publish_failed_sensors()
+        publish_failed_sensors(id_val)
 
 
 def timer_start():
@@ -204,16 +197,16 @@ while True:
             print(val_hb)
             if val_hb == 1:
                 counter_board1 = 0
-                CLIENT.publish(topic=_Failed_times.format(id=1), payload="0")
+                CLIENT.publish(topic=_Failed_times.format(id_val=1), payload="0")
             elif val_hb == 2:
                 counter_board2 = 0
-                CLIENT.publish(topic=_Failed_times.format(id=2), payload="0")
+                CLIENT.publish(topic=_Failed_times.format(id_val=2), payload="0")
             elif val_hb == 3:
                 counter_board3 = 0
-                CLIENT.publish(topic=_Failed_times.format(id=3), payload="0")
+                CLIENT.publish(topic=_Failed_times.format(id_val=3), payload="0")
             elif val_hb == 4:
                 counter_board4 = 0
-                CLIENT.publish(topic=_Failed_times.format(id=4), payload="0")
+                CLIENT.publish(topic=_Failed_times.format(id_val=4), payload="0")
         except:
             pass
 
