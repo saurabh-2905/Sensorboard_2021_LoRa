@@ -169,7 +169,7 @@ def timer_start():
     Starts the timer, which repeatetly calls the callbackfunction.
     """
     cb()
-    threading.Timer(3.6, timer_start).start()
+    threading.Timer(3.5, timer_start).start()
 
 # Connect WIFI and MQTT
 
