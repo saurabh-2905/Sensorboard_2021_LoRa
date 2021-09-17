@@ -133,6 +133,7 @@ def send_mqtt(values):
     Sends given values to the MQTT Server. Also publishes information
     about working and not working sensors, given by :function: check_sensors.
     """
+    # limits broken!
     connect_mqtt()
     global counter_mqtt
     id_val_index = values[15]
@@ -161,7 +162,7 @@ def timer_start():
     Starts the timer, which repeatetly calls the callbackfunction.
     """
     cb()
-    threading.Timer(3.5, timer_start).start()
+    threading.Timer(3.6, timer_start).start()
 
 # Connect WIFI and MQTT
 
