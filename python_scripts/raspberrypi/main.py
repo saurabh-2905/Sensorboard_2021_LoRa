@@ -18,8 +18,9 @@ _TOPICS = ("board{id_val}/co2_scd", "board{id_val}/co", "board{id_val}/o2", "boa
            "board{id_val}/humid2_am", "board{id_val}/temp3_am", "board{id_val}/humid3_am",
            "board{id_val}/temp4_am", "board{id_val}/humid4_am")
 
-_Failed_times = "board{id_val}/active_status"  # Topic for the Sensorboardstatus'
-_Failed_sensor = "sensor{id_val}_stat_"  # Topic for the Sensorstatus'
+_Failed_times = "board{id_val}/active_status"  # Topic for the Sensorboardstatus
+_Failed_sensor = "sensor{id_val}_stat_"  # Topic for the Sensorstatus
+_Limits_broken = "board{id_val}/limits"
 comp_const = 1
 length_failed_sensors = 8
 length_values = 12  # 12 sensor readings+sensor board number+heartbeat+limits broken
@@ -127,6 +128,12 @@ def check_sensors(val, id_val):
             sensor_connections[id_val][i] = 0
             val = val >> comp_const
 
+def publish_limits_broken(id_val, limits_val):
+    """
+    Publishes if limits are broken for given board.
+    """
+    CLIENT.publish(topic=_Limits_broken.format(id_val=id_val), payload=str(limits_val))
+        
 
 def send_mqtt(values):
     """
@@ -135,9 +142,9 @@ def send_mqtt(values):
     """
     # limits broken!
     connect_mqtt()
-    global counter_mqtt
     id_val_index = values[15]
     id_val = str(id_val_index)
+    publish_limits_broken(id_val_index, values[13])
     if not values[length_values]:
         for j in range(length_values):
             CLIENT.publish(topic=_TOPICS[j].format(id_val=id_val), payload=str(values[j]))
@@ -182,21 +189,21 @@ while True:
                 l[i] = round(l[i], 2)
             elif i <= 11:
                 l[i] = round(l[i], 1)              
-        print(l)
+        #print(l)
         # prevent spikes. Values are specified by the datasheets.        
         if l[0] > 40000 or l[0] < 0 or l[1] > 1000 or l[1] < 0 or l[2] > 25 or l[2] < 0 or l[3] > 1100 or l[3] < 300 or l[4] > 80 or l[4] < -40 or l[5] > 100 or l[5] < 0 or l[6] > 80 or l[6] < -40 or l[7] > 100 or l[7] < 0 or l[8] > 80 or l[8] < -40 or l[9] > 100 or l[9] < 0 or l[10] > 80 or l[10] < -40 or l[11] > 100 or l[11] < 0 or l[12] > 255 or l[12] < 0 or l[13] < 0 or l[13] > 1 or l[15] > 4 or l[15] < 1:
             time.sleep(0.05)  # OPTIMIZE! 
             send(str(l[15]))
-            print("SEND")
+            #print("SEND")
         else:
             send_mqtt(l)
             time.sleep(0.05)  # OPTIMIZE! 
             send(str(l[15]))
-            print("SEND")  # to be removed
+            #print("SEND")  # to be removed
     except Exception as e:
         try:
             val_hb = struct.unpack('I', recv_msg)[0]
-            print(val_hb)  # to be removed
+            #print(val_hb)  # to be removed
             if val_hb == 1:
                 counter_board1 = 0
                 CLIENT.publish(topic=_Failed_times.format(id_val=1), payload="0")
