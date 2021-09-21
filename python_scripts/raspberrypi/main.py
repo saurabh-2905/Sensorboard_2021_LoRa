@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika U.
-# date: 07.09.2021
+# date: 21.09.2021
 # function: Implentation of a LoRa receiving LoPy, which after receiving checks
 #           if any of the received data is not valid. If any data is not valid
 #           it wont be send via MQTT, otherwise it will.
@@ -95,26 +95,68 @@ def cb():
     global counter_board1, counter_board2, counter_board3, counter_board4
     counter_board1 += 1
     if counter_board1 == MAX_COUNT:
-        CLIENT.publish(topic=_Failed_times.format(id_val=1), payload="1")
+        CLIENT.publish(topic=_Failed_times.format(id_val=1), payload="10000")
+        publish_failed_board(1)
     counter_board2 += 1
     if counter_board2 == MAX_COUNT:
-        CLIENT.publish(topic=_Failed_times.format(id_val=2), payload="1")
+        CLIENT.publish(topic=_Failed_times.format(id_val=2), payload="10000")
+        publish_failed_board(2)
     counter_board3 += 1
     if counter_board3 == MAX_COUNT:
-        CLIENT.publish(topic=_Failed_times.format(id_val=3), payload="1")
+        CLIENT.publish(topic=_Failed_times.format(id_val=3), payload="10000")
+        publish_failed_board(3)
     counter_board4 += 1
     if counter_board4 == MAX_COUNT:
-        CLIENT.publish(topic=_Failed_times.format(id_val=4), payload="1")
+        CLIENT.publish(topic=_Failed_times.format(id_val=4), payload="10000")
+        publish_failed_board(4)
 
-
-def publish_failed_sensors(id_val):
+def publish_failed_board(id_val):
+    """
+    Publsihed data, that indicates that the sensorboard is failed.
+    """
+    global i
+    i = 0
+    for j in range(length_failed_sensors):
+        if i < 4:
+            if i == 0:
+                CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
+            elif i == 1:
+                CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
+            elif i == 2:
+                CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
+            elif i == 3:
+                CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
+            i += 1
+        else:
+            CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
+            CLIENT.publish(topic=_TOPICS[i+1].format(id_val=id_val), payload="99999")
+            i += 2
+    
+        
+def publish_failed_sensors(id_val_index):
     """
     Publishes all Sensorstatus' to the MQTT Server.
     """
-    for i in range(length_failed_sensors):
-        CLIENT.publish(topic=_Failed_sensor.format(id_val=id_val) + str(i),
-                       payload=str(sensor_connections[id_val-1][i]))
-
+    id_val = str(id_val_index)
+    i = 0
+    for j in range(length_failed_sensors):
+        if i < 4:
+            if sensor_connections[id_val_index-1][j]:
+                if i == 0:
+                    CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
+                elif i == 1:
+                    CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
+                elif i == 2:
+                    CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
+                elif i == 3:
+                    CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
+            i += 1
+        else:
+            if sensor_connections[id_val_index-1][j]:
+                CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
+                CLIENT.publish(topic=_TOPICS[i+1].format(id_val=id_val), payload="99999")
+            i += 2
+                
 
 def check_sensors(val, id_val):
     """
@@ -132,7 +174,10 @@ def publish_limits_broken(id_val, limits_val):
     """
     Publishes if limits are broken for given board.
     """
-    CLIENT.publish(topic=_Limits_broken.format(id_val=id_val), payload=str(limits_val))
+    if limits_val:
+        CLIENT.publish(topic=_Limits_broken.format(id_val=id_val), payload="1000")
+    else:
+        CLIENT.publish(topic=_Limits_broken.format(id_val=id_val), payload="10000")
         
 
 def send_mqtt(values):
@@ -140,7 +185,6 @@ def send_mqtt(values):
     Sends given values to the MQTT Server. Also publishes information
     about working and not working sensors, given by :function: check_sensors.
     """
-    # limits broken!
     connect_mqtt()
     id_val_index = values[15]
     id_val = str(id_val_index)
@@ -206,16 +250,16 @@ while True:
             #print(val_hb)  # to be removed
             if val_hb == 1:
                 counter_board1 = 0
-                CLIENT.publish(topic=_Failed_times.format(id_val=1), payload="0")
+                CLIENT.publish(topic=_Failed_times.format(id_val=1), payload="1000")
             elif val_hb == 2:
                 counter_board2 = 0
-                CLIENT.publish(topic=_Failed_times.format(id_val=2), payload="0")
+                CLIENT.publish(topic=_Failed_times.format(id_val=2), payload="1000")
             elif val_hb == 3:
                 counter_board3 = 0
-                CLIENT.publish(topic=_Failed_times.format(id_val=3), payload="0")
+                CLIENT.publish(topic=_Failed_times.format(id_val=3), payload="1000")
             elif val_hb == 4:
                 counter_board4 = 0
-                CLIENT.publish(topic=_Failed_times.format(id_val=4), payload="0")
+                CLIENT.publish(topic=_Failed_times.format(id_val=4), payload="1000")
         except Exception as e:
             pass
 
