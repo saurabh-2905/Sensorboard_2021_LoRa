@@ -140,6 +140,7 @@ def send_mqtt(values):
     Sends given values to the MQTT Server. Also publishes information
     about working and not working sensors, given by :function: check_sensors.
     """
+    # limits broken!
     connect_mqtt()
     id_val_index = values[15]
     id_val = str(id_val_index)

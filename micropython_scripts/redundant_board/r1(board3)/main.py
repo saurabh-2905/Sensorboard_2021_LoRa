@@ -174,7 +174,13 @@ def cb_30(p):
     """
     Sends the current readings from the sensors.
     """
-    uheapq.heappush(que, msg)
+    global que
+    global error
+    try:
+        uheapq.heappush(que, msg)
+    except:
+        error = 1
+        que = []
     lora.send(que[0])
     lora.recv()
 
@@ -226,10 +232,10 @@ def emergency_mode(mode):
     if mode:
         EMERGENCY_STATUS = 1
         timer0.deinit()
-        timer2.init(period=30000, mode=Timer.PERIODIC, callback=cb_30)
+        timer3.init(period=30000, mode=Timer.PERIODIC, callback=cb_30)
     elif mode == 0 and EMERGENCY_STATUS:
-        timer2.deinit()
-        timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_30)
+        timer3.deinit()
+        timer0.init(period=120000, mode=Timer.PERIODIC, callback=cb_30)
         EMERGENCY_STATUS = 0
 
 # Thresshold limits
@@ -261,9 +267,9 @@ timer3 = Timer(3)
 msg = ""
 
 # init starting timers
-timer3.init(period=4500, mode=Timer.PERIODIC, callback=cb_r)
+timer2.init(period=4500, mode=Timer.PERIODIC, callback=cb_r)
 timer1.init(period=3500, mode=Timer.PERIODIC, callback=cb_hb)
-timer0.init(period=240000, mode=Timer.PERIODIC, callback=cb_30)  
+timer0.init(period=120000, mode=Timer.PERIODIC, callback=cb_30)  
 
 # sensor readings list init
 SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -285,7 +291,7 @@ while True:
                     scd_co2, scd_temp, scd_hum = reading_co2
                     if not (THRESHOLD_LIMITS[i][0] <= scd_co2 <= THRESHOLD_LIMITS[i][1]):
                         LIMITS_BROKEN = 1
-                SENSOR_DATA[0] = round(scd_co2, 2)r
+                SENSOR_DATA[0] = round(scd_co2, 2)
                 SENSOR_DATA[1] = round(scd_temp, 2)
                 SENSOR_DATA[2] = round(scd_hum, 2)
             elif 1 <= i <= 3:
@@ -293,7 +299,7 @@ while True:
                 var = func_call()
                 if not (THRESHOLD_LIMITS[i][0] <= var <= THRESHOLD_LIMITS[i][1]):
                     LIMITS_BROKEN = 1
-                SENSOR_DATA[i+2] = round(var, 2)r
+                SENSOR_DATA[i+2] = round(var, 2)
             else:
                 # AM2301 readings(involves 2 values)
                 am_temp, am_hum = func_call()
