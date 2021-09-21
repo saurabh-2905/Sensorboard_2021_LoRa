@@ -174,13 +174,7 @@ def cb_30(p):
     """
     Sends the current readings from the sensors.
     """
-    global que
-    global error
-    try:
-        uheapq.heappush(que, msg)
-    except:
-        error = 1
-        que = []
+    uheapq.heappush(que, msg)
     lora.send(que[0])
     lora.recv()
 
