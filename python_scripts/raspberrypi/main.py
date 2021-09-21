@@ -30,7 +30,7 @@ counter_board3 = 0
 counter_board4 = 0
 val_hb = 0
 
-MAX_COUNT = 2  # Maximum of heartbeats that are allowed to be missed.
+MAX_COUNT = 3  # Maximum of heartbeats that are allowed to be missed.
 
 sensor_connections = [[0, 0, 0, 0, 0, 0, 0, 0],
                       [0, 0, 0, 0, 0, 0, 0, 0],
@@ -168,7 +168,7 @@ def timer_start():
     Starts the timer, which repeatetly calls the callbackfunction.
     """
     cb()
-    threading.Timer(3.6, timer_start).start()
+    threading.Timer(3.5, timer_start).start()
 
 # Connect WIFI and MQTT
 
