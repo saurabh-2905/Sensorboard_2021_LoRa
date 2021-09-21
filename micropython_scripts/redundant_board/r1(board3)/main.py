@@ -28,7 +28,7 @@ AM2301_1_ADRR = const(0)
 AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
-SENSORBOARD_ID = const(4)
+SENSORBOARD_ID = const(3)
 REDUNDANT_HEARTBEAT = const(1)
 
 # Heartbeat signal
@@ -333,4 +333,3 @@ while True:
     if LIMITS_BROKEN:
         lora.send(msg)  # Sends imidiately if threshold limits are broken.
         lora.recv()
-

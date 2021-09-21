@@ -48,6 +48,7 @@ scd_hum = 0
 am_temp = 0 
 am_hum = 0 
 que = []
+error = 0
 
 # establish I2c Bus
 try:
@@ -168,7 +169,13 @@ def cb_30(p):
     """
     Sends the current readings from the sensors.
     """
-    uheapq.heappush(que, msg)
+    global que
+    global error
+    try:
+        uheapq.heappush(que, msg)
+    except:
+        error = 1
+        que = []
     lora.send(que[0])
     lora.recv()
 
