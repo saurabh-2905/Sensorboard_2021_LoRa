@@ -27,7 +27,7 @@ AM2301_1_ADRR = const(0)
 AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
-SENSORBOARD_ID = const(2)
+SENSORBOARD_ID = const(3)
 
 # Heartbeat signal
 heartbeat_msg = ustruct.pack('I', SENSORBOARD_ID)
