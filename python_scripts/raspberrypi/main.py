@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika U.
-# date: 21.09.2021
+# date: 28.09.2021
 # function: Implentation of a LoRa receiving LoPy, which after receiving checks
 #           if any of the received data is not valid. If any data is not valid
 #           it wont be send via MQTT, otherwise it will.
@@ -96,41 +96,45 @@ def cb():
     counter_board1 += 1
     if counter_board1 == MAX_COUNT:
         CLIENT.publish(topic=_Failed_times.format(id_val=1), payload="10000")
-        publish_failed_board(1)
+        publish_failed_board("1")
+        counter_board1 = 0
     counter_board2 += 1
     if counter_board2 == MAX_COUNT:
         CLIENT.publish(topic=_Failed_times.format(id_val=2), payload="10000")
-        publish_failed_board(2)
+        publish_failed_board("2")
+        counter_board2 = 0
     counter_board3 += 1
     if counter_board3 == MAX_COUNT:
         CLIENT.publish(topic=_Failed_times.format(id_val=3), payload="10000")
-        publish_failed_board(3)
+        publish_failed_board("3")
+        counter_board3 = 0
     counter_board4 += 1
     if counter_board4 == MAX_COUNT:
         CLIENT.publish(topic=_Failed_times.format(id_val=4), payload="10000")
-        publish_failed_board(4)
+        publish_failed_board("4")
+        counter_board4 = 0
 
 def publish_failed_board(id_val):
     """
     Publsihed data, that indicates that the sensorboard is failed.
     """
-    global i
-    i = 0
+    global k
+    k = 0
     for j in range(length_failed_sensors):
-        if i < 4:
-            if i == 0:
-                CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
-            elif i == 1:
-                CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
-            elif i == 2:
-                CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
-            elif i == 3:
-                CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
-            i += 1
+        if k < 4:
+            if k == 0:
+                CLIENT.publish(topic=_TOPICS[k].format(id_val=id_val), payload="99999")
+            elif k == 1:
+                CLIENT.publish(topic=_TOPICS[k].format(id_val=id_val), payload="99999")
+            elif k == 2:
+                CLIENT.publish(topic=_TOPICS[k].format(id_val=id_val), payload="99999")
+            elif k == 3:
+                CLIENT.publish(topic=_TOPICS[k].format(id_val=id_val), payload="99999")
+            k += 1
         else:
-            CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
-            CLIENT.publish(topic=_TOPICS[i+1].format(id_val=id_val), payload="99999")
-            i += 2
+            CLIENT.publish(topic=_TOPICS[k].format(id_val=id_val), payload="99999")
+            CLIENT.publish(topic=_TOPICS[k+1].format(id_val=id_val), payload="99999")
+            k += 2
     
         
 def publish_failed_sensors(id_val_index):
