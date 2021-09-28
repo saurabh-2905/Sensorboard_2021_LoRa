@@ -28,6 +28,7 @@ AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
 SENSORBOARD_ID = const(1)
+MAX_QUE = const(3)
 
 # Heartbeat signal
 heartbeat_msg = ustruct.pack('I', SENSORBOARD_ID)
@@ -198,7 +199,7 @@ def cb_lora(p):
         rcv_msg = p.decode()
         if int(rcv_msg) == SENSORBOARD_ID:
             uheapq.heappop(que)
-            if len(que) > 1:
+            if len(que) > MAX_QUE:
                 que = []
     except Exception:
         pass

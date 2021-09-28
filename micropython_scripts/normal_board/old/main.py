@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Malavika Unnikrishnan, Florian Stechmann
-# date: 21.09.2021
+# date: 28.09.2021
 # function: Implements a normal board. Sends values every 30 secs, if threshhold
 #           limits are broken every ~2 secs.
 # -------------------------------------------------------------------------------
