@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Malavika Unnikrishnan, Florian Stechmann
-# date: 21.09.2021
+# date: 28.09.2021
 # function: Implements a normal board. Sends values every 30 secs, if threshhold
 #           limits are broken every ~2 secs.
 # -------------------------------------------------------------------------------
@@ -28,6 +28,7 @@ AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
 SENSORBOARD_ID = const(2)
+MAX_QUE = const(2)
 
 # Heartbeat signal
 heartbeat_msg = ustruct.pack('I', SENSORBOARD_ID)
@@ -193,10 +194,13 @@ def cb_lora(p):
     Callbackfunction for LoRa functionality.
     Removes a value from the queue, if an ack is received.
     """
+    global que
     try:
         rcv_msg = p.decode()
         if int(rcv_msg) == SENSORBOARD_ID:
-            uheapq.heappop(que)            
+            uheapq.heappop(que)
+            if len(que) > MAX_QUE:
+                que = []
     except Exception:
         pass
 
@@ -290,7 +294,6 @@ while True:
                        SENSOR_DATA[13], SENSOR_STATUS,
                        LIMITS_BROKEN, 0, SENSORBOARD_ID)  # current Sensorreadings
 
-        
     if LIMITS_BROKEN:
         lora.send(msg)  # Sends imidiately if threshold limits are broken.
         lora.recv()
