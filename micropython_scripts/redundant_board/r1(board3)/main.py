@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Malavika Unnikrishnan, Florian Stechmann
-# date: 07.09.2021
+# date: 28.09.2021
 # function: Implements a redundant board. Sends values every 4 min, if board 1
 #           fails sends every 30 secs. Send every ~2 secs if threshold limits
 #           are broken (see below).
@@ -197,8 +197,10 @@ def cb_lora(p):
     global counter_redundancy
     try:
         rcv_msg = int(p.decode())
-        if rcv_msg == SENSORBOARD_ID:
+        if int(rcv_msg) == SENSORBOARD_ID:
             uheapq.heappop(que)
+            if len(que) > MAX_QUE:
+                que = []
     except Exception:
         rcv_msg = ustruct.unpack('I', p)[0]
         if rcv_msg == REDUNDANT_HEARTBEAT:

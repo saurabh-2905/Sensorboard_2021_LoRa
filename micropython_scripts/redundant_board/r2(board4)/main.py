@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Malavika Unnikrishnan, Florian Stechmann
-# date: 07.09.2021
+# date: 28.09.2021
 # function: Implements a redundant board. Sends values every 4 min, if board 1
 #           fails sends every 30 secs. Send every ~2 secs if threshold limits
 #           are broken (see below).
@@ -29,7 +29,7 @@ AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
 SENSORBOARD_ID = const(4)
-REDUNDANT_HEARTBEAT = const(1)
+REDUNDANT_HEARTBEAT = const(2)
 
 # Heartbeat signal
 heartbeat_msg = ustruct.pack('I', SENSORBOARD_ID)
@@ -50,6 +50,7 @@ scd_hum = 0
 am_temp = 0
 am_hum = 0
 que = []
+error = 0
 
 counter_redundancy = 0
 
@@ -196,8 +197,10 @@ def cb_lora(p):
     global counter_redundancy
     try:
         rcv_msg = int(p.decode())
-        if rcv_msg == SENSORBOARD_ID:
+        if int(rcv_msg) == SENSORBOARD_ID:
             uheapq.heappop(que)
+            if len(que) > MAX_QUE:
+                que = []
     except Exception:
         rcv_msg = ustruct.unpack('I', p)[0]
         if rcv_msg == REDUNDANT_HEARTBEAT:
@@ -327,4 +330,3 @@ while True:
     if LIMITS_BROKEN:
         lora.send(msg)  # Sends imidiately if threshold limits are broken.
         lora.recv()
-

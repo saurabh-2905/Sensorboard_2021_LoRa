@@ -37,23 +37,20 @@ sensor_connections = [[0, 0, 0, 0, 0, 0, 0, 0],
                       [0, 0, 0, 0, 0, 0, 0, 0],
                       [0, 0, 0, 0, 0, 0, 0, 0]]  # Holds all values for the working/not working sensors.
 
-#global counter_mqtt
-counter_mqtt = 0
-
 # Setting up MQTT
 MQTT_SERVER = '192.168.30.17'
 CLIENT = mqtt.Client()
 
 # Callback function to trace heartbeat packet loss
 
-            
+
 def lora_init():
     """
     Initialises the SX1276 with 868MHz and a SF of 7.
     """
     lora.init(868000000, 7)
 
-        
+
 def receive():
     """
     Waits for a message and returns it.
@@ -65,7 +62,7 @@ def receive():
             return msg
             break
 
-                    
+
 def send(msg):
     """
     Sends a given bytestring, or formats a string and then sends it.
@@ -75,14 +72,14 @@ def send(msg):
         msg = msg.encode()
     lora.send(msg)
 
-        
+
 def connect_mqtt():
     """
     Connects RbPi to the MQTT Server with the specidfied IP-Address
     """
     try:
         CLIENT.connect(MQTT_SERVER)
-    except:
+    except Exception:
         pass
 
 
@@ -114,6 +111,7 @@ def cb():
         publish_failed_board("4")
         counter_board4 = 0
 
+
 def publish_failed_board(id_val):
     """
     Publsihed data, that indicates that the sensorboard is failed.
@@ -135,8 +133,8 @@ def publish_failed_board(id_val):
             CLIENT.publish(topic=_TOPICS[k].format(id_val=id_val), payload="99999")
             CLIENT.publish(topic=_TOPICS[k+1].format(id_val=id_val), payload="99999")
             k += 2
-    
-        
+
+
 def publish_failed_sensors(id_val_index):
     """
     Publishes all Sensorstatus' to the MQTT Server.
@@ -160,7 +158,7 @@ def publish_failed_sensors(id_val_index):
                 CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
                 CLIENT.publish(topic=_TOPICS[i+1].format(id_val=id_val), payload="99999")
             i += 2
-                
+
 
 def check_sensors(val, id_val):
     """
@@ -174,6 +172,7 @@ def check_sensors(val, id_val):
             sensor_connections[id_val][i] = 0
             val = val >> comp_const
 
+
 def publish_limits_broken(id_val, limits_val):
     """
     Publishes if limits are broken for given board.
@@ -182,7 +181,7 @@ def publish_limits_broken(id_val, limits_val):
         CLIENT.publish(topic=_Limits_broken.format(id_val=id_val), payload="1000")
     else:
         CLIENT.publish(topic=_Limits_broken.format(id_val=id_val), payload="10000")
-        
+
 
 def send_mqtt(values):
     """
@@ -221,6 +220,7 @@ def timer_start():
 
 # Connect WIFI and MQTT
 
+
 lora_init()
 connect_mqtt()
 timer_start()
@@ -230,7 +230,7 @@ while True:
     recv_msg = receive()
     try:
         values = struct.unpack('ffffffffffffIIII', recv_msg)
-        #Converting to list to obtain float subsitute
+        # Converting to list to obtain float subsitute
         l = list(values)
         for i in range(len(l)):
             if i <= 3:
@@ -248,7 +248,7 @@ while True:
             time.sleep(0.05)  # OPTIMIZE! 
             send(str(l[15]))
             #print("SEND")  # to be removed
-    except Exception as e:
+    except Exception:
         try:
             val_hb = struct.unpack('I', recv_msg)[0]
             #print(val_hb)  # to be removed
@@ -264,7 +264,7 @@ while True:
             elif val_hb == 4:
                 counter_board4 = 0
                 CLIENT.publish(topic=_Failed_times.format(id_val=4), payload="1000")
-        except Exception as e:
+        except Exception:
             pass
 
 
