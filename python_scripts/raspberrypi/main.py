@@ -121,17 +121,17 @@ def publish_failed_board(id_val):
     for j in range(length_failed_sensors):
         if k < 4:
             if k == 0:
-                CLIENT.publish(topic=_TOPICS[k].format(id_val=id_val), payload="99999")
+                CLIENT.publish(topic=_TOPICS[k].format(id_val=id_val), payload="40002")
             elif k == 1:
-                CLIENT.publish(topic=_TOPICS[k].format(id_val=id_val), payload="99999")
+                CLIENT.publish(topic=_TOPICS[k].format(id_val=id_val), payload="1002")
             elif k == 2:
-                CLIENT.publish(topic=_TOPICS[k].format(id_val=id_val), payload="99999")
+                CLIENT.publish(topic=_TOPICS[k].format(id_val=id_val), payload="27")
             elif k == 3:
-                CLIENT.publish(topic=_TOPICS[k].format(id_val=id_val), payload="99999")
+                CLIENT.publish(topic=_TOPICS[k].format(id_val=id_val), payload="1102")
             k += 1
         else:
-            CLIENT.publish(topic=_TOPICS[k].format(id_val=id_val), payload="99999")
-            CLIENT.publish(topic=_TOPICS[k+1].format(id_val=id_val), payload="99999")
+            CLIENT.publish(topic=_TOPICS[k].format(id_val=id_val), payload="82")
+            CLIENT.publish(topic=_TOPICS[k+1].format(id_val=id_val), payload="102")
             k += 2
 
 
@@ -145,18 +145,18 @@ def publish_failed_sensors(id_val_index):
         if i < 4:
             if sensor_connections[id_val_index-1][j]:
                 if i == 0:
-                    CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
+                    CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="40002")
                 elif i == 1:
-                    CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
+                    CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="1002")
                 elif i == 2:
-                    CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
+                    CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="27")
                 elif i == 3:
-                    CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
+                    CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="1102")
             i += 1
         else:
             if sensor_connections[id_val_index-1][j]:
-                CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="99999")
-                CLIENT.publish(topic=_TOPICS[i+1].format(id_val=id_val), payload="99999")
+                CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val), payload="82")
+                CLIENT.publish(topic=_TOPICS[i+1].format(id_val=id_val), payload="102")
             i += 2
 
 
