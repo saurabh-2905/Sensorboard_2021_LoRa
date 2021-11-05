@@ -1,10 +1,12 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika U.
-# date: 28.09.2021
+# date: 05.11.2021
 # function: Implentation of a LoRa receiving LoPy, which after receiving checks
 #           if any of the received data is not valid. If any data is not valid
 #           it wont be send via MQTT, otherwise it will.
 # -------------------------------------------------------------------------------
+from datetime import datetime
+
 import paho.mqtt.client as mqtt
 
 import loralib as lora
@@ -44,6 +46,22 @@ CLIENT = mqtt.Client()
 # Callback function to trace heartbeat packet loss
 
 
+def write_to_log(msg):
+    """
+    Write a given Message to the file log.txt.
+    """
+    with open("log.txt", "a") as f:
+        f.write(msg + "\t" + get_date_and_time() + "\n")
+
+
+def get_date_and_time():
+    """
+    Return the current date and time as a string. Formatted like:
+    "DAY.MONTH.YEAR -- HOUR:MINUTE:SECOND"
+    """
+    return datetime.now().strftime("%d.%m.%Y" + " -- " + "%H:%M:%S")
+
+
 def lora_init():
     """
     Initialises the SX1276 with 868MHz and a SF of 7.
@@ -79,8 +97,8 @@ def connect_mqtt():
     """
     try:
         CLIENT.connect(MQTT_SERVER)
-    except Exception:
-        pass
+    except Exception as em:
+        write_to_log(str(em))
 
 
 def cb():
@@ -236,22 +254,23 @@ while True:
             if i <= 3:
                 l[i] = round(l[i], 2)
             elif i <= 11:
-                l[i] = round(l[i], 1)              
-        #print(l)
-        # prevent spikes. Values are specified by the datasheets.        
+                l[i] = round(l[i], 1)
+        print(l)
+        # prevent spikes. Values are specified by the datasheets.
         if l[0] > 40000 or l[0] < 0 or l[1] > 1000 or l[1] < 0 or l[2] > 25 or l[2] < 0 or l[3] > 1100 or l[3] < 300 or l[4] > 80 or l[4] < -40 or l[5] > 100 or l[5] < 0 or l[6] > 80 or l[6] < -40 or l[7] > 100 or l[7] < 0 or l[8] > 80 or l[8] < -40 or l[9] > 100 or l[9] < 0 or l[10] > 80 or l[10] < -40 or l[11] > 100 or l[11] < 0 or l[12] > 255 or l[12] < 0 or l[13] < 0 or l[13] > 1 or l[15] > 4 or l[15] < 1:
-            time.sleep(0.05)  # OPTIMIZE! 
+            time.sleep(0.05)  # OPTIMIZE!
             send(str(l[15]))
-            #print("SEND")
+            print("SEND")
         else:
             send_mqtt(l)
-            time.sleep(0.05)  # OPTIMIZE! 
+            time.sleep(0.05)  # OPTIMIZE!
             send(str(l[15]))
-            #print("SEND")  # to be removed
-    except Exception:
+            print("SEND")  # to be removed
+    except Exception as e1:
+        write_to_log(str(e1))
         try:
             val_hb = struct.unpack('I', recv_msg)[0]
-            #print(val_hb)  # to be removed
+            print(val_hb)  # to be removed
             if val_hb == 1:
                 counter_board1 = 0
                 CLIENT.publish(topic=_Failed_times.format(id_val=1), payload="1000")
@@ -264,8 +283,5 @@ while True:
             elif val_hb == 4:
                 counter_board4 = 0
                 CLIENT.publish(topic=_Failed_times.format(id_val=4), payload="1000")
-        except Exception:
-            pass
-
-
-
+        except Exception as e2:
+            write_to_log(str(e2))
