@@ -255,22 +255,22 @@ while True:
                 l[i] = round(l[i], 2)
             elif i <= 11:
                 l[i] = round(l[i], 1)
-        #print(l)
+        print(l)
         # prevent spikes. Values are specified by the datasheets.
         if l[0] > 40000 or l[0] < 0 or l[1] > 1000 or l[1] < 0 or l[2] > 25 or l[2] < 0 or l[3] > 1100 or l[3] < 300 or l[4] > 80 or l[4] < -40 or l[5] > 100 or l[5] < 0 or l[6] > 80 or l[6] < -40 or l[7] > 100 or l[7] < 0 or l[8] > 80 or l[8] < -40 or l[9] > 100 or l[9] < 0 or l[10] > 80 or l[10] < -40 or l[11] > 100 or l[11] < 0 or l[12] > 255 or l[12] < 0 or l[13] < 0 or l[13] > 1 or l[15] > 4 or l[15] < 1:
             time.sleep(0.05)  # OPTIMIZE!
             send(str(l[15]))
-            #print("SEND")
+            print("SEND")
         else:
             send_mqtt(l)
             time.sleep(0.05)  # OPTIMIZE!
             send(str(l[15]))
-            #print("SEND")  # to be removed
+            print("SEND")  # to be removed
     except Exception as e1:
         write_to_log(str(e1))
         try:
             val_hb = struct.unpack('I', recv_msg)[0]
-            #print(val_hb)  # to be removed
+            print(val_hb)  # to be removed
             if val_hb == 1:
                 counter_board1 = 0
                 CLIENT.publish(topic=_Failed_times.format(id_val=1), payload="1000")
