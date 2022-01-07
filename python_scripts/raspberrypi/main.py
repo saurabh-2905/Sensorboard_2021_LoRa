@@ -5,6 +5,7 @@
 #           if any of the received data is not valid. If any data is not valid
 #           it wont be send via MQTT, otherwise it will.
 # -------------------------------------------------------------------------------
+###testing git
 from datetime import datetime
 
 import paho.mqtt.client as mqtt
