@@ -31,7 +31,8 @@ SENSORBOARD_ID = const(2)
 MAX_QUE = const(3)
 
 # Heartbeat signal
-heartbeat_msg = ustruct.pack('ffffffffffffIIII', 0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,SENSORBOARD_ID)
+# heartbeat_msg = ustruct.pack('ffffffffffffIIII', 0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,SENSORBOARD_ID)
+heartbeat_msg = ustruct.pack('>12f4I', 0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,SENSORBOARD_ID)
 
 # Connection_variables initialisation
 FAILED_LORA = 1
@@ -174,7 +175,8 @@ def cb_30(p):
     global error
     try:
         uheapq.heappush(que, msg)
-    except:
+    except Exception as e:
+        print('callback 30:', e)
         error = 1
         que = []
     lora.send(que[0])
@@ -198,11 +200,12 @@ def cb_lora(p):
     try:
         rcv_msg = p.decode()
         if int(rcv_msg) == SENSORBOARD_ID:
+            print('Queue length:', len(que))
             uheapq.heappop(que)
             if len(que) > MAX_QUE:
                 que = []
-    except Exception:
-        pass
+    except Exception as e:
+        print('callback lora', e)    ### catch if any error
 
 
 # Thresshold limits
@@ -287,7 +290,7 @@ while True:
                 SENSOR_STATUS += 2**(i)
             else:
                 SENSOR_STATUS += 2**(i)
-    msg = ustruct.pack('ffffffffffffIIII', SENSOR_DATA[0], SENSOR_DATA[3],
+    msg = ustruct.pack('>12f4I', SENSOR_DATA[0], SENSOR_DATA[3],
                        SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
                        SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
                        SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
