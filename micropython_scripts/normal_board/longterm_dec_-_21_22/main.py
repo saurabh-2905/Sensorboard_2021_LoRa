@@ -31,7 +31,7 @@ SENSORBOARD_ID = const(2)
 MAX_QUE = const(3)
 
 # Heartbeat signal
-heartbeat_msg = ustruct.pack('ffffffffffffIIII', 0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,SENSORBOARD_ID)
+heartbeat_msg = ustruct.pack('ffffffffffffIIII', 0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,SENSORBOARD_ID)
 
 # Connection_variables initialisation
 FAILED_LORA = 1
