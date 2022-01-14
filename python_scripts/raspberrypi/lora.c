@@ -433,7 +433,7 @@ void txlora(byte *frame, byte datalen) {
   writeBuf(REG_FIFO, frame, datalen);
   // now we actually start the transmission
   opmode(OPMODE_TX);
-  while((readReg(REG_IRQ_FLAGS) & 0x08) == 0){}
+  while((readReg(REG_IRQ_FLAGS) & 0x08) == 0){}     //edited
   writeReg(REG_IRQ_FLAGS, 0x08);
 }
 
