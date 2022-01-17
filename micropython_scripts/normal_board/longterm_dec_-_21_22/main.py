@@ -200,7 +200,6 @@ def cb_lora(p):
     try:
         rcv_msg = p.decode()
         if int(rcv_msg) == SENSORBOARD_ID:
-            print('Queue length:', len(que))
             uheapq.heappop(que)
             if len(que) > MAX_QUE:
                 que = []
@@ -242,7 +241,10 @@ timer1.init(period=3500, mode=Timer.PERIODIC, callback=cb_hb)
 SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 # infinite loop execution
+_testing_var = 0
 while True:
+    print(_testing_var)
+    print('que:', que)
     SENSOR_STATUS = 0
     LIMITS_BROKEN = 0
     j = 6
@@ -300,3 +302,6 @@ while True:
     if LIMITS_BROKEN:
         lora.send(msg)  # Sends imidiately if threshold limits are broken.
         lora.recv()
+    
+    _testing_var += 1
+
