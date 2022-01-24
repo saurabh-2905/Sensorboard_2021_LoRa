@@ -11,7 +11,7 @@ from lora import LoRa
 from mcp3221 import MCP3221
 from bmp180 import BMP180
 from am2301 import AM2301
-import uheapq, time
+import time
 
 def measure_scd30():
     """
@@ -72,15 +72,6 @@ def measure_am4():
     return AM2301_4.read_measurement()
 
 
-def cb_30(p):
-    """
-    Sends the current readings from the sensors.
-    """
-    global cb_30_done 
-
-    cb_30_done = True
-
-
 def cb_hb(p):
     """
     Sends the heartbeat signal.
@@ -98,11 +89,29 @@ def cb_lora(p):
     global que
     try:
         rcv_msg = p.decode()
-        print('Ack:', rcv_msg)
-        if int(rcv_msg) == SENSORBOARD_ID:
-            uheapq.heappop(que)
+        board_id, timestamp = rcv_msg.split(',')
+        # print('Ack:', board_id, timestamp)
+        if int(board_id) == SENSORBOARD_ID:
+            for each_pkt in que:
+                if each_pkt[1] == int(timestamp):
+                    que.remove(each_pkt)  #### remove the pkt with desried timestamp
+                    # print('Removed', each_pkt)
     except Exception as e:
         print('callback lora', e)    ### catch if any error
+
+
+def crc32(crc, p, len):
+    '''
+    crc = 0
+    p = message
+    len = length of msg
+    '''
+    crc = 0xffffffff & ~crc
+    for i in range(len):
+        crc = crc ^ p[i]
+        for j in range(8):
+            crc = (crc >> 1) ^ (0xedb88320 & -(crc & 1))
+    return 0xffffffff & ~crc
 
 
 
@@ -122,6 +131,8 @@ AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
 SENSORBOARD_ID = const(1)
+MSG_INTERVAL = const(15)
+RETX_INTERVAL = const(5)
 
 # Connection_variables initialisation
 FAILED_LORA = 1
@@ -133,18 +144,13 @@ CONNECTION_A1 = 1
 CONNECTION_A2 = 1
 CONNECTION_A3 = 1
 CONNECTION_A4 = 1
+MAX_QUEUE = const(10)
 scd_co2 = 0
 scd_temp = 0
 scd_hum = 0
 am_temp = 0 
 am_hum = 0 
 que = []
-error = 0
-dropped_packets = []
-
-cb_30_done = False
-cb_hb_done = False
-
 
 ############# establish connections ###################
 ## establish I2c Bus
@@ -223,21 +229,16 @@ time.sleep(10+SENSORBOARD_ID)
 # Set callback for LoRa (recv as IR)
 lora.on_recv(cb_lora)
 
-# Create Timers
-timer0 = Timer(0)
-
-# init starting timers
-timer0.init(period=10000, mode=Timer.PERIODIC, callback=cb_30)
-
 SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]   ###### sensor readings list init
 
 ############### infinite loop execution ###########################
 msg = ""      ##### msg init
 _testing_var = 0
+start_time = time.mktime(time.localtime()) ##### get the start time of the script in seconds wrt the localtime
 while True:
 #     print(_testing_var)
     # print('que:', len(que), time.localtime())
-    current_time = time.localtime()
+    current_time = time.mktime(time.localtime()) ##### get the current time of the script in seconds wrt the localtime
     SENSOR_STATUS = 0
     LIMITS_BROKEN = 0
     j = 6
@@ -285,38 +286,43 @@ while True:
                 SENSOR_STATUS += 2**(i)
             else:
                 SENSOR_STATUS += 2**(i)
+    ####### prepare the packted to be sent
     msg = ustruct.pack(_pkng_frmt, SENSOR_DATA[0], SENSOR_DATA[3],
                        SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
                        SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
                        SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
                        SENSOR_DATA[13], SENSOR_STATUS,
                        LIMITS_BROKEN, 0, SENSORBOARD_ID)  # current Sensorreadings
+    msg += ustruct.pack(">L", current_time)  ##### add timestamp to the msg
+    msg += ustruct.pack(">L", crc32(0, msg, 60))  ##### add 32-bit crc (4 bytes) to the msg
 
-    if cb_30_done == True:
+    if (current_time - start_time) % MSG_INTERVAL == 0: ##### send the messages every 10 seconds 
+        print('15 sec interval')              
         try:
-            print('len(que):', len(que))
-            if que != []:
-                print('{} packets dropped'.format(len(que)))
-                dropped_packets += [que[0]]
-                que = []
-                uheapq.heappush(que, (msg, time.localtime()))
+            if len(que) >= MAX_QUEUE:
+                dropped = que.pop() ###### pop the packet from the end of que (the oldest packet)
+                # print('packet dropped: {}'.format(dropped))
+                que = [(msg, current_time)] + que  #### add the newest msg at the front of que 
             else:
-                uheapq.heappush(que, (msg, time.localtime()))
-            print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1])   ### print the latest message form tuple (msg, timestamp)
+                que = [(msg, current_time)] + que
             lora.send(que[0][0])
+            print('len(que):', len(que))
+            print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1])   ### print the latest message(end of que) form tuple (msg, timestamp)
             lora.recv()
         except Exception as e:
             print('callback 30:', e)
-            error = 1
-        cb_30_done = False
-    
+
+    if (current_time - start_time) % RETX_INTERVAL == 0 and (current_time - start_time) % MSG_INTERVAL != 0: #### retransmit every 5 seconds for piled up packets with no ack
+        if que != []:
+            print('Retransmit')
+            lora.send(que[0][0])
+            print('len(que):', len(que))
+            print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1])   ### print the latest message(end of que) form tuple (msg, timestamp)
+            lora.recv()
     # if LIMITS_BROKEN:
     #     # print('msg:', ustruct.unpack(_pkng_frmt, msg), time.localtime())   ### print the latest message form tuple (msg, timestamp)
     #     lora.send(msg)  # Sends imidiately if threshold limits are broken.
     #     lora.recv()
     
     _testing_var += 1
-
-
-
 
