@@ -6,12 +6,20 @@ from network import LoRa
 import socket, ustruct, network, machine, time, micropython
 
 def crc32(crc, p, len):
-  crc = 0xffffffff & ~crc
-  for i in range(len):
-    crc = crc ^ p[i]
-    for j in range(8):
-      crc = (crc >> 1) ^ (0xedb88320 & -(crc & 1))
-  return 0xffffffff & ~crc
+    crc = 0xffffffff & ~crc
+    for i in range(len):
+        crc = crc ^ p[i]
+        for j in range(8):
+            crc = (crc >> 1) ^ (0xedb88320 & -(crc & 1))
+    return 0xffffffff & ~crc
+
+
+def write_to_log(msg, timestamp):
+    """
+    Write a given Message to the file log.txt.
+    """
+    with open("log.txt", "a") as f:
+        f.write(msg + "\t" + timestamp + "\n")
 
 
 lora = LoRa(mode=LoRa.LORA, region=LoRa.EU868, bandwidth=LoRa.BW_125KHZ, sf=7,
@@ -23,22 +31,26 @@ s = socket.socket(socket.AF_LORA, socket.SOCK_RAW)
 s.setblocking(True)
 
 # Start of loop
-_iteration_var = 0
+# _iteration_var = 0
+print('Receiving Packets......')
 while True:
-    print(_iteration_var)
-    _iteration_var += 1
+    # print(_iteration_var)
+    # _iteration_var += 1
 
     recv_msg = s.recv(64)
     if len(recv_msg) == 64:   #### to differentiate between heartbeat and msg
         if ustruct.unpack(">L", recv_msg[-4:])[0] != crc32(0, recv_msg[:-4], 60):
-            print('Invalid CRC32')
+            # print('Invalid CRC32')
+            write_to_log('Invalid CRC32', str(timestamp[0]))
         else:
             values = ustruct.unpack('>12f4H', recv_msg[:-8]) #### exclude timstamp and crc (8 bytes) to get msg
             timestamp = ustruct.unpack('>L', recv_msg[-8:-4]) ##### get timestamp
-            print(values, timestamp)
+            # print(values, timestamp)
             s.send(str(values[15])+','+str(timestamp[0]))
+            write_to_log('Received', str(timestamp[0]))
     else:
-        print('Short message:', len(recv_msg))
+        # print('Short message:', len(recv_msg))
+        write_to_log('Short message:{}'.format(len(recv_msg)), str(timestamp[0]))
 
     # except Exception as e:
     #     print('Reception Error:', e)

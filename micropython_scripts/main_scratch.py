@@ -97,7 +97,8 @@ def cb_lora(p):
                     que.remove(each_pkt)  #### remove the pkt with desried timestamp
                     # print('Removed', each_pkt)
     except Exception as e:
-        print('callback lora', e)    ### catch if any error
+        # print('callback lora', e)    ### catch if any error
+        write_to_log('callback lora: {}'.format(e), str( time.mktime(time.localtime()) ) )
 
 
 def crc32(crc, p, len):
@@ -112,6 +113,14 @@ def crc32(crc, p, len):
         for j in range(8):
             crc = (crc >> 1) ^ (0xedb88320 & -(crc & 1))
     return 0xffffffff & ~crc
+
+
+def write_to_log(msg, timestamp):
+    """
+    Write a given Message to the file log.txt.
+    """
+    with open("log.txt", "a") as f:
+        f.write(msg + "\t" + timestamp + "\n")
 
 
 
@@ -224,7 +233,7 @@ FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp, measure_am1,
             measure_am2, measure_am3, measure_am4)
 
 #  Initial sleep (needed!)
-time.sleep(10+SENSORBOARD_ID)
+# time.sleep(10+SENSORBOARD_ID)
 
 # Set callback for LoRa (recv as IR)
 lora.on_recv(cb_lora)
@@ -233,10 +242,12 @@ SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]   ###### sensor reading
 
 ############### infinite loop execution ###########################
 msg = ""      ##### msg init
-_testing_var = 0
+# _testing_var = 0
 start_time = time.mktime(time.localtime()) ##### get the start time of the script in seconds wrt the localtime
+print('Transmission Started')
 while True:
 #     print(_testing_var)
+    # _testing_var += 1
     # print('que:', len(que), time.localtime())
     current_time = time.mktime(time.localtime()) ##### get the current time of the script in seconds wrt the localtime
     SENSOR_STATUS = 0
@@ -275,8 +286,9 @@ while True:
                 j += 2
             if CONNECTION_VAR[i] == 0:
                 CONNECTION_VAR[i] = 1
-        except Exception:
+        except Exception as e:
             CONNECTION_VAR[i] = 0
+            write_to_log('connection {}: {}'.format(i, e), str(current_time))
 
         if not CONNECTION_VAR[i]:
             # Sensor failed
@@ -297,7 +309,7 @@ while True:
     msg += ustruct.pack(">L", crc32(0, msg, 60))  ##### add 32-bit crc (4 bytes) to the msg
 
     if (current_time - start_time) % MSG_INTERVAL == 0: ##### send the messages every 10 seconds 
-        print('15 sec interval')              
+        # print('15 sec interval')              
         try:
             if len(que) >= MAX_QUEUE:
                 dropped = que.pop() ###### pop the packet from the end of que (the oldest packet)
@@ -306,23 +318,23 @@ while True:
             else:
                 que = [(msg, current_time)] + que
             lora.send(que[0][0])
-            print('len(que):', len(que))
-            print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1])   ### print the latest message(end of que) form tuple (msg, timestamp)
+            # print('len(que):', len(que))
+            # print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1])   ### print the latest message(end of que) form tuple (msg, timestamp)
             lora.recv()
         except Exception as e:
-            print('callback 30:', e)
+            # print('callback 30:', e)
+            write_to_log('callback 30: {}'.format(e), str(current_time))
 
     if (current_time - start_time) % RETX_INTERVAL == 0 and (current_time - start_time) % MSG_INTERVAL != 0: #### retransmit every 5 seconds for piled up packets with no ack
         if que != []:
-            print('Retransmit')
+            # print('Retransmit')
+            # print('len(que):', len(que))
+            # print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1])   ### print the latest message(end of que) form tuple (msg, timestamp)
             lora.send(que[0][0])
-            print('len(que):', len(que))
-            print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1])   ### print the latest message(end of que) form tuple (msg, timestamp)
             lora.recv()
     # if LIMITS_BROKEN:
     #     # print('msg:', ustruct.unpack(_pkng_frmt, msg), time.localtime())   ### print the latest message form tuple (msg, timestamp)
     #     lora.send(msg)  # Sends imidiately if threshold limits are broken.
     #     lora.recv()
     
-    _testing_var += 1
 
