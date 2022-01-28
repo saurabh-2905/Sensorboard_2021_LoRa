@@ -4,8 +4,9 @@
 ###########################################################################
 
 from machine import Pin, I2C, SoftSPI, Timer
+import machine
 import micropython
-import ustruct
+import ustruct, ubinascii, uhashlib
 from scd30 import SCD30
 from lora import LoRa
 from mcp3221 import MCP3221
@@ -72,13 +73,14 @@ def measure_am4():
     return AM2301_4.read_measurement()
 
 
-def cb_hb(p):
-    """
-    Sends the heartbeat signal.
-    """
-    global cb_hb_done
+def cb_30(p):
+    global cb_30_done
+    cb_30_done = True
 
-    cb_hb_done = True
+
+def cb_retrans(p):
+    global cb_retrans_done 
+    cb_retrans_done = True
 
 
 def cb_lora(p):
@@ -131,13 +133,28 @@ def add_to_que(msg, current_time):
         que = [(msg, current_time)] + que  #### add the newest msg at the front of que 
     else:
         que = [(msg, current_time)] + que
+
+
+def get_nodename():
+    uuid = ubinascii.hexlify(machine.unique_id()).decode()
+    node_name = "ESP_" + uuid
+    return node_name
+
+
+def get_node_id(hex=False):
+    node_id = ubinascii.hexlify(uhashlib.sha1(machine.unique_id()).digest()).decode("utf-8")[-8:] # 4 bytes unsigned int
+    if hex:
+        return node_id
+    else:
+        return int(node_id, 16)
     
 
 #### Allcoate emergeny buffer for interrupt signals
 micropython.alloc_emergency_exception_buf(100)
 
 #### packing format
-_pkng_frmt = '>12f4H'
+_pkng_frmt = '>12f3HI'
+SENSORBOARD_ID = get_node_id()
 
 ######### constants and variables##########
 ##### addresses of sensors
@@ -148,7 +165,6 @@ AM2301_1_ADRR = const(0)
 AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
-SENSORBOARD_ID = const(1)
 MSG_INTERVAL = const(30)
 RETX_INTERVAL = const(5)
 
@@ -169,6 +185,8 @@ scd_hum = 0
 am_temp = 0 
 am_hum = 0 
 que = []
+cb_30_done = False
+cb_retrans_done = False
 
 ############# establish connections ###################
 ## establish I2c Bus
@@ -241,8 +259,9 @@ CONNECTION_VAR = [CONNECTION_CO2, CONNECTION_CO, CONNECTION_O2,
 FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp, measure_am1,
             measure_am2, measure_am3, measure_am4)
 
-#  Initial sleep (needed!)
-# time.sleep(10+SENSORBOARD_ID)
+# Create Timers
+timer0 = Timer(0)
+timer1 = Timer(1)
 
 # Set callback for LoRa (recv as IR)
 lora.on_recv(cb_lora)
@@ -252,7 +271,11 @@ SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]   ###### sensor reading
 ############### infinite loop execution ###########################
 msg = ""      ##### msg init
 # _testing_var = 0
+
+timer0.init(period=30000, mode=Timer.ONE_SHOT, callback=cb_30)
+
 start_time = time.mktime(time.localtime()) ##### get the start time of the script in seconds wrt the localtime
+retransmit_count = 0
 print('Transmission Started')
 while True:
 #     print(_testing_var)
@@ -322,8 +345,10 @@ while True:
         print('Limit broken','len(que):', len(que))
         lora.send(msg)  # Sends imidiately if threshold limits are broken.
         lora.recv()
-    elif (current_time - start_time) > MSG_INTERVAL: ##### send the messages every 10 seconds 
-        # print('15 sec interval')              
+    elif cb_30_done: ##### send the messages every 30 seconds 
+        # print('15 sec interval')      
+        cb_30_done = False  
+        timer1.init(period=10000, mode=Timer.PERIODIC, callback=cb_retrans)      
         try:
             add_to_que(msg, current_time)
             lora.send(que[0][0])
@@ -334,11 +359,18 @@ while True:
             print('callback 30:', e)
             # write_to_log('callback 30: {}'.format(e), str(current_time))
         start_time = current_time
-    elif (current_time - start_time) % RETX_INTERVAL == 0: #### retransmit every 5 seconds for piled up packets with no ack
+        timer0.init(period=30000, mode=Timer.ONE_SHOT, callback=cb_30)
+    elif cb_retrans_done: #### retransmit every 5 seconds for piled up packets with no ack
+        cb_retrans_done = False
+        retransmit_count += 1
         if que != []:
             print('Retransmit', current_time - start_time)
             print('len(que):', len(que))
             # print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1])   ### print the latest message(end of que) form tuple (msg, timestamp)
             lora.send(que[0][0])
             lora.recv()
+
+        if retransmit_count >= 2:
+            timer1.deinit()
+            retransmit_count = 0
 
