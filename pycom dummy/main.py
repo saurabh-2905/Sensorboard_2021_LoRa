@@ -31,25 +31,25 @@ s = socket.socket(socket.AF_LORA, socket.SOCK_RAW)
 s.setblocking(True)
 
 # Start of loop
-# _iteration_var = 0
+_iteration_var = 0
 print('Receiving Packets......')
 while True:
-    # print(_iteration_var)
-    # _iteration_var += 1
+    print(_iteration_var)
+    _iteration_var += 1
 
     recv_msg = s.recv(64)
     if len(recv_msg) == 64:   #### to differentiate between heartbeat and msg
         if ustruct.unpack(">L", recv_msg[-4:])[0] != crc32(0, recv_msg[:-4], 60):
-            # print('Invalid CRC32')
+            print('Invalid CRC32')
             write_to_log('Invalid CRC32', str(timestamp[0]))
         else:
             values = ustruct.unpack('>12f4H', recv_msg[:-8]) #### exclude timstamp and crc (8 bytes) to get msg
             timestamp = ustruct.unpack('>L', recv_msg[-8:-4]) ##### get timestamp
-            # print(values, timestamp)
+            print(values, timestamp)
             s.send(str(values[15])+','+str(timestamp[0]))
             write_to_log('Received', str(timestamp[0]))
     else:
-        # print('Short message:', len(recv_msg))
+        print('Short message:', len(recv_msg))
         write_to_log('Short message:{}'.format(len(recv_msg)), str(timestamp[0]))
 
     # except Exception as e:

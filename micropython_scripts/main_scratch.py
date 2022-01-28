@@ -90,15 +90,15 @@ def cb_lora(p):
     try:
         rcv_msg = p.decode()
         board_id, timestamp = rcv_msg.split(',')
-        # print('Ack:', board_id, timestamp)
         if int(board_id) == SENSORBOARD_ID:
             for each_pkt in que:
                 if each_pkt[1] == int(timestamp):
                     que.remove(each_pkt)  #### remove the pkt with desried timestamp
-                    # print('Removed', each_pkt)
+                    print('Ack:', board_id, timestamp,)
+                    print('len(que):', len(que))
     except Exception as e:
-        # print('callback lora', e)    ### catch if any error
-        write_to_log('callback lora: {}'.format(e), str( time.mktime(time.localtime()) ) )
+        print('callback lora', e)    ### catch if any error
+        # write_to_log('callback lora: {}'.format(e), str( time.mktime(time.localtime()) ) )
 
 
 def crc32(crc, p, len):
@@ -123,6 +123,15 @@ def write_to_log(msg, timestamp):
         f.write(msg + "\t" + timestamp + "\n")
 
 
+def add_to_que(msg, current_time):
+    global que
+    if len(que) >= MAX_QUEUE:
+        dropped = que.pop() ###### pop the packet from the end of que (the oldest packet)
+        # print('packet dropped: {}'.format(dropped))
+        que = [(msg, current_time)] + que  #### add the newest msg at the front of que 
+    else:
+        que = [(msg, current_time)] + que
+    
 
 #### Allcoate emergeny buffer for interrupt signals
 micropython.alloc_emergency_exception_buf(100)
@@ -140,7 +149,7 @@ AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
 SENSORBOARD_ID = const(1)
-MSG_INTERVAL = const(15)
+MSG_INTERVAL = const(30)
 RETX_INTERVAL = const(5)
 
 # Connection_variables initialisation
@@ -288,7 +297,7 @@ while True:
                 CONNECTION_VAR[i] = 1
         except Exception as e:
             CONNECTION_VAR[i] = 0
-            write_to_log('connection {}: {}'.format(i, e), str(current_time))
+            # write_to_log('connection {}: {}'.format(i, e), str(current_time))
 
         if not CONNECTION_VAR[i]:
             # Sensor failed
@@ -308,33 +317,28 @@ while True:
     msg += ustruct.pack(">L", current_time)  ##### add timestamp to the msg
     msg += ustruct.pack(">L", crc32(0, msg, 60))  ##### add 32-bit crc (4 bytes) to the msg
 
-    if (current_time - start_time) % MSG_INTERVAL == 0: ##### send the messages every 10 seconds 
+    if LIMITS_BROKEN:
+        add_to_que(msg, current_time)
+        print('Limit broken','len(que):', len(que))
+        lora.send(msg)  # Sends imidiately if threshold limits are broken.
+        lora.recv()
+    elif (current_time - start_time) > MSG_INTERVAL: ##### send the messages every 10 seconds 
         # print('15 sec interval')              
         try:
-            if len(que) >= MAX_QUEUE:
-                dropped = que.pop() ###### pop the packet from the end of que (the oldest packet)
-                # print('packet dropped: {}'.format(dropped))
-                que = [(msg, current_time)] + que  #### add the newest msg at the front of que 
-            else:
-                que = [(msg, current_time)] + que
+            add_to_que(msg, current_time)
             lora.send(que[0][0])
             # print('len(que):', len(que))
-            # print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1])   ### print the latest message(end of que) form tuple (msg, timestamp)
+            print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1], current_time - start_time)   ### print the latest message(end of que) form tuple (msg, timestamp)
             lora.recv()
         except Exception as e:
-            # print('callback 30:', e)
-            write_to_log('callback 30: {}'.format(e), str(current_time))
-
-    if (current_time - start_time) % RETX_INTERVAL == 0 and (current_time - start_time) % MSG_INTERVAL != 0: #### retransmit every 5 seconds for piled up packets with no ack
+            print('callback 30:', e)
+            # write_to_log('callback 30: {}'.format(e), str(current_time))
+        start_time = current_time
+    elif (current_time - start_time) % RETX_INTERVAL == 0: #### retransmit every 5 seconds for piled up packets with no ack
         if que != []:
-            # print('Retransmit')
-            # print('len(que):', len(que))
+            print('Retransmit', current_time - start_time)
+            print('len(que):', len(que))
             # print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1])   ### print the latest message(end of que) form tuple (msg, timestamp)
             lora.send(que[0][0])
             lora.recv()
-    # if LIMITS_BROKEN:
-    #     # print('msg:', ustruct.unpack(_pkng_frmt, msg), time.localtime())   ### print the latest message form tuple (msg, timestamp)
-    #     lora.send(msg)  # Sends imidiately if threshold limits are broken.
-    #     lora.recv()
-    
 
