@@ -14,6 +14,7 @@ import loralib as lora
 import threading
 import time
 import struct
+import numpy as np
 
 def write_to_log(msg):
     """
@@ -164,10 +165,11 @@ def send_mqtt(values):
     about working and not working sensors, given by :function: check_sensors.
     """
     connect_mqtt()
-    id_val_index = values[15]
+    id_val_index = map_board_ids(values[15])   ### get the integer board id from the hardware board id
+#     print(id_val_index)
     id_val = str(id_val_index)
     publish_limits_broken(id_val_index, values[13])
-    if not values[length_values]:
+    if not values[length_values]:   ### check the sensor status bit
         for j in range(length_values):
             CLIENT.publish(topic=_TOPICS[j].format(id_val=id_val), payload=str(values[j]))
     else:
@@ -195,6 +197,15 @@ def crc32(crc, p, len):
     return 0xffffffff & ~crc
 
 
+def map_board_ids(hardware_id):
+    '''
+    map the new hardware ids to the old integer id for compatibility with code
+    '''
+    global board_ids
+    mapped_id = np.where(np.array(board_ids) == hardware_id)[0][0]
+    return mapped_id + 1
+    
+
 # Tuple with MQTT topics
 _TOPICS = ("board{id_val}/co2_scd", "board{id_val}/co", "board{id_val}/o2", "board{id_val}/amb_press",
            "board{id_val}/temp1_am", "board{id_val}/humid1_am", "board{id_val}/temp2_am",
@@ -209,7 +220,7 @@ length_failed_sensors = 8
 length_values = 12  # 12 sensor readings+sensor board number+limits broken+heartbeat+sensor id
 cb_timer_done = False
 sensorboard_list = dict()
-board_ids = []
+board_ids = [3982231425, 94420780, 301920073]   ### based on the manuall numbering of the boards (to map to old ids)
 
 MAX_COUNT = 3  # Maximum of heartbeats that are allowed to be missed.
 
@@ -223,7 +234,7 @@ MQTT_SERVER = '192.168.30.17'
 CLIENT = mqtt.Client()
 
 # Connect WIFI and MQTT
-MESSAGE_LENGTH = const(66)    ###### 58+4+4
+MESSAGE_LENGTH = 66    ###### 58+4+4
 _pkng_frmt = '>12f3HI'
 
 lora_init()
@@ -231,7 +242,7 @@ connect_mqtt()
 # timer_start()
 print('Receiving Packets......')
 # Start of loop
-threading.Timer(90000, cb).start()
+threading.Timer(90, cb).start()
 while True:
     recv_msg = receive()
     if len(recv_msg) == MESSAGE_LENGTH:   #### to differentiate between heartbeat and msg
@@ -243,8 +254,8 @@ while True:
             timestamp = list(struct.unpack('>L', recv_msg[-8:-4])) ##### get timestamp
             send(str(values[15])+','+str(timestamp[0]))
             write_to_log_time('Received', str(timestamp[0]))
-            if values[15] not in board_ids:
-                board_ids += [values[15]]
+            if values[15] not in list(sensorboard_list.keys()):
+#                 board_ids += [values[15]]
                 sensorboard_list[values[15]] = 1
             else:
                 sensorboard_list[values[15]] += 1
@@ -256,74 +267,37 @@ while True:
                 elif i <= 11:
                     l[i] = round(l[i], 1)
 
-            if l[0] > 40000 or l[0] < 0 or l[1] > 1000 or l[1] < 0 or l[2] > 25 or l[2] < 0 or l[3] > 1100 or l[3] < 300 or l[4] > 80 or l[4] < -40 or l[5] > 100 or l[5] < 0 or l[6] > 80 or l[6] < -40 or l[7] > 100 or l[7] < 0 or l[8] > 80 or l[8] < -40 or l[9] > 100 or l[9] < 0 or l[10] > 80 or l[10] < -40 or l[11] > 100 or l[11] < 0 or l[12] > 255 or l[12] < 0 or l[13] < 0 or l[13] > 1 or l[15] > 4 or l[15] < 1:
-                time.sleep(0.05)  # OPTIMIZE!
-                # send(str(l[15]))
-                print("Limit error for MQTT")
-                write_to_log_time('Limit error for MQTT: {}'. format(l), str(timestamp[0]))
+#             if l[0] > 40000 or l[0] < 0 or l[1] > 1000 or l[1] < 0 or l[2] > 25 or l[2] < 0 or l[3] > 1100 or l[3] < 300 or l[4] > 80 or l[4] < -40 or l[5] > 100 or l[5] < 0 or l[6] > 80 or l[6] < -40 or l[7] > 100 or l[7] < 0 or l[8] > 80 or l[8] < -40 or l[9] > 100 or l[9] < 0 or l[10] > 80 or l[10] < -40 or l[11] > 100 or l[11] < 0 or l[12] > 255 or l[12] < 0 or l[13] < 0 or l[13] > 1:
+#                 time.sleep(0.05)  # OPTIMIZE!
+#                 # send(str(l[15]))
+#                 print("Limit error for MQTT")
+#                 write_to_log_time('Limit error for MQTT: {}'. format(l), str(timestamp[0]))
+# 
+#             else:
+#                 send_mqtt(l)
+#                 time.sleep(0.05)  # OPTIMIZE!
+#                 # send(str(l[15]))
+#                 print("Sent to MQTT")  # to be removed
 
-            else:
-                send_mqtt(l)
-                time.sleep(0.05)  # OPTIMIZE!
-                # send(str(l[15]))
-                print("Sent to MQTT")  # to be removed
+            send_mqtt(l)
+            print("Sent to MQTT")
     else:
         print('Short message:', len(recv_msg))
         write_to_log_time('Short message:{}'.format(len(recv_msg)), str(timestamp[0]))
 
     if cb_timer_done:
-        for each_board in board_ids:
+        for each_board in list(sensorboard_list.keys()):
+            print(each_board)
+            old_board_id = map_board_ids(each_board)
             signal_count = sensorboard_list[each_board]
             if signal_count < 2:
-                print('Board {} not working'.format(each_board))
-                CLIENT.publish(topic=_Failed_times.format(id_val=each_board), payload="10000")
-                publish_failed_board("{}".format(each_board))
+                print('Board {} not working'.format(old_board_id))
+                CLIENT.publish(topic=_Failed_times.format(id_val=old_board_id), payload="10000")
+                publish_failed_board("{}".format(old_board_id))
             else:
                 print('signal_count:', signal_count)
+                CLIENT.publish(topic=_Failed_times.format(id_val=old_board_id), payload="1000")
             sensorboard_list[each_board] = 0
         # print('sensorboard_list:', sensorboard_list)
-        cb_done = False
-
-
-
-
-
-
-
-
-
-    # values = struct.unpack('>12f4I', recv_msg)
-    # # Converting to list to obtain float subsitute
-    # l = list(values)
-    # print(l)
-    # if not l[14]:
-    #     for i in range(len(l)):
-    #         if i <= 3:
-    #             l[i] = round(l[i], 2)
-    #         elif i <= 11:
-    #             l[i] = round(l[i], 1)
-    #     # prevent spikes. Values are specified by the datasheets.
-    #     if l[0] > 40000 or l[0] < 0 or l[1] > 1000 or l[1] < 0 or l[2] > 25 or l[2] < 0 or l[3] > 1100 or l[3] < 300 or l[4] > 80 or l[4] < -40 or l[5] > 100 or l[5] < 0 or l[6] > 80 or l[6] < -40 or l[7] > 100 or l[7] < 0 or l[8] > 80 or l[8] < -40 or l[9] > 100 or l[9] < 0 or l[10] > 80 or l[10] < -40 or l[11] > 100 or l[11] < 0 or l[12] > 255 or l[12] < 0 or l[13] < 0 or l[13] > 1 or l[15] > 4 or l[15] < 1:
-    #         time.sleep(0.05)  # OPTIMIZE!
-    #         # send(str(l[15]))
-    #         print("SEND")
-    #     else:
-    #         send_mqtt(l)
-    #         time.sleep(0.05)  # OPTIMIZE!
-    #         # send(str(l[15]))
-    #         print("SEND")  # to be removed
-    # else:
-    #     val_hb = l[15]
-    #     send(str(l[15]))
-    #     if val_hb == 1:
-    #         counter_board1 = 0
-    #         CLIENT.publish(topic=_Failed_times.format(id_val=1), payload="1000")
-    #     elif val_hb == 2:
-    #         counter_board2 = 0
-    #         CLIENT.publish(topic=_Failed_times.format(id_val=2), payload="1000")
-    #     elif val_hb == 3:
-    #         counter_board3 = 0
-    #         CLIENT.publish(topic=_Failed_times.format(id_val=3), payload="1000")
-    #     elif val_hb == 4:
-    #         counter_board4 = 0
-    #         CLIENT.publish(topic=_Failed_times.format(id_val=4), payload="1000")
+        cb_timer_done = False
+        threading.Timer(90, cb).start()
