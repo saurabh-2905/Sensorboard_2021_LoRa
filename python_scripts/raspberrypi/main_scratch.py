@@ -83,27 +83,8 @@ def cb():
     If the value is at :param: MAX_COUNT, sends a value, that indicates
     that the board isn't working anymore.
     """
-    global counter_board1, counter_board2, counter_board3, counter_board4
-    counter_board1 += 1
-    if counter_board1 == MAX_COUNT:
-        CLIENT.publish(topic=_Failed_times.format(id_val=1), payload="10000")
-        publish_failed_board("1")
-        counter_board1 = 0
-    counter_board2 += 1
-    if counter_board2 == MAX_COUNT:
-        CLIENT.publish(topic=_Failed_times.format(id_val=2), payload="10000")
-        publish_failed_board("2")
-        counter_board2 = 0
-    counter_board3 += 1
-    if counter_board3 == MAX_COUNT:
-        CLIENT.publish(topic=_Failed_times.format(id_val=3), payload="10000")
-        publish_failed_board("3")
-        counter_board3 = 0
-    counter_board4 += 1
-    if counter_board4 == MAX_COUNT:
-        CLIENT.publish(topic=_Failed_times.format(id_val=4), payload="10000")
-        publish_failed_board("4")
-        counter_board4 = 0
+    global cb_timer_done
+    cb_timer_done = True
 
 
 def publish_failed_board(id_val):
@@ -226,11 +207,9 @@ _Limits_broken = "board{id_val}/limits"
 comp_const = 1
 length_failed_sensors = 8
 length_values = 12  # 12 sensor readings+sensor board number+limits broken+heartbeat+sensor id
-counter_board1 = 0
-counter_board2 = 0
-counter_board3 = 0
-counter_board4 = 0
-val_hb = 0
+cb_timer_done = False
+sensorboard_list = dict()
+board_ids = []
 
 MAX_COUNT = 3  # Maximum of heartbeats that are allowed to be missed.
 
@@ -252,6 +231,7 @@ connect_mqtt()
 # timer_start()
 print('Receiving Packets......')
 # Start of loop
+threading.Timer(90000, cb).start()
 while True:
     recv_msg = receive()
     if len(recv_msg) == MESSAGE_LENGTH:   #### to differentiate between heartbeat and msg
@@ -263,6 +243,11 @@ while True:
             timestamp = list(struct.unpack('>L', recv_msg[-8:-4])) ##### get timestamp
             send(str(values[15])+','+str(timestamp[0]))
             write_to_log_time('Received', str(timestamp[0]))
+            if values[15] not in board_ids:
+                board_ids += [values[15]]
+                sensorboard_list[values[15]] = 1
+            else:
+                sensorboard_list[values[15]] += 1
             l = list(values)
             print(l, timestamp)
             for i in range(len(l)):
@@ -282,10 +267,22 @@ while True:
                 time.sleep(0.05)  # OPTIMIZE!
                 # send(str(l[15]))
                 print("Sent to MQTT")  # to be removed
-
     else:
         print('Short message:', len(recv_msg))
         write_to_log_time('Short message:{}'.format(len(recv_msg)), str(timestamp[0]))
+
+    if cb_timer_done:
+        for each_board in board_ids:
+            signal_count = sensorboard_list[each_board]
+            if signal_count < 2:
+                print('Board {} not working'.format(each_board))
+                CLIENT.publish(topic=_Failed_times.format(id_val=each_board), payload="10000")
+                publish_failed_board("{}".format(each_board))
+            else:
+                print('signal_count:', signal_count)
+            sensorboard_list[each_board] = 0
+        # print('sensorboard_list:', sensorboard_list)
+        cb_done = False
 
 
 

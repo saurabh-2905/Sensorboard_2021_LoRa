@@ -13,6 +13,7 @@ from mcp3221 import MCP3221
 from bmp180 import BMP180
 from am2301 import AM2301
 import time
+import random
 
 def measure_scd30():
     """
@@ -165,8 +166,8 @@ AM2301_1_ADRR = const(0)
 AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
-MSG_INTERVAL = const(30)
-RETX_INTERVAL = const(5)
+# MSG_INTERVAL = const(30)
+# RETX_INTERVAL = const(5)
 
 # Connection_variables initialisation
 FAILED_LORA = 1
@@ -187,6 +188,8 @@ am_hum = 0
 que = []
 cb_30_done = False
 cb_retrans_done = False
+msg_interval = 30000  ### 30 sec
+retx_interval = 5000  ###  5 sec
 
 ############# establish connections ###################
 ## establish I2c Bus
@@ -247,7 +250,7 @@ except:
 
 
 ##### Thresshold limits
-THRESHOLD_LIMITS = ((0.0, 1000.0), (0.0, 20.0), (19.5, 23.0), (1010.0, 1040.0),
+THRESHOLD_LIMITS = ((0.0, 1000.0), (0.0, 20.0), (19.5, 23.0), (1000.0, 1040.0),
                     (18.0, 30.0, 0.0, 100.0))
 
 ##### connectionvaribles for each sensor
@@ -272,13 +275,13 @@ SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]   ###### sensor reading
 msg = ""      ##### msg init
 # _testing_var = 0
 
-timer0.init(period=30000, mode=Timer.ONE_SHOT, callback=cb_30)
+timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
 
 start_time = time.mktime(time.localtime()) ##### get the start time of the script in seconds wrt the localtime
 retransmit_count = 0
 print('Transmission Started')
 while True:
-#     print(_testing_var)
+    print('intervals:',  msg_interval/1000, retx_interval/1000)
     # _testing_var += 1
     # print('que:', len(que), time.localtime())
     current_time = time.mktime(time.localtime()) ##### get the current time of the script in seconds wrt the localtime
@@ -346,9 +349,7 @@ while True:
         lora.send(msg)  # Sends imidiately if threshold limits are broken.
         lora.recv()
     elif cb_30_done: ##### send the messages every 30 seconds 
-        # print('15 sec interval')      
-        cb_30_done = False  
-        timer1.init(period=10000, mode=Timer.PERIODIC, callback=cb_retrans)      
+        # print('15 sec interval')            
         try:
             add_to_que(msg, current_time)
             lora.send(que[0][0])
@@ -359,7 +360,12 @@ while True:
             print('callback 30:', e)
             # write_to_log('callback 30: {}'.format(e), str(current_time))
         start_time = current_time
-        timer0.init(period=30000, mode=Timer.ONE_SHOT, callback=cb_30)
+        timer1.init(period=retx_interval, mode=Timer.PERIODIC, callback=cb_retrans)
+        timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
+        cb_30_done = False
+        if random.random() >= 0.4:   ## randoomize the msg interval to avoid continous collision of packets
+            msg_interval = random.randrange(20000,40000, 1000)   ### select time randomly with steps of 1000ms, because the max on air time is 123ms and 390ms for SF7 and SF9 resp.     
+            retx_interval = random.randrange(2000,10000, 1000)   ### select random time interval with step size of 1 sec
     elif cb_retrans_done: #### retransmit every 5 seconds for piled up packets with no ack
         cb_retrans_done = False
         retransmit_count += 1
@@ -373,4 +379,5 @@ while True:
         if retransmit_count >= 2:
             timer1.deinit()
             retransmit_count = 0
+
 
