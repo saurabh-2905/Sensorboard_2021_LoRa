@@ -97,8 +97,8 @@ def cb_lora(p):
             for each_pkt in que:
                 if each_pkt[1] == int(timestamp):
                     que.remove(each_pkt)  #### remove the pkt with desried timestamp
-                    print('Ack:', board_id, timestamp,)
-                    print('len(que):', len(que))
+                    # print('Ack:', board_id, timestamp,)
+                    # print('len(que):', len(que))
     except Exception as e:
         print('callback lora', e)    ### catch if any error
         # write_to_log('callback lora: {}'.format(e), str( time.mktime(time.localtime()) ) )
@@ -211,7 +211,7 @@ try:
     scd30.start_continous_measurement()
 except:
     CONNECTION_CO2 = 0
-    print('Connection SCD30 failed')
+    # print('Connection SCD30 failed')
 
 try:
     MCP_CO = MCP3221(I2CBUS, CO_ADRR)
@@ -250,7 +250,7 @@ except:
 
 
 ##### Thresshold limits
-THRESHOLD_LIMITS = ((0.0, 1000.0), (0.0, 20.0), (19.5, 23.0), (1000.0, 1040.0),
+THRESHOLD_LIMITS = ((0.0, 1000.0), (0.0, 20.0), (19.5, 23.0), (950.0, 1040.0),
                     (18.0, 30.0, 0.0, 100.0))
 
 ##### connectionvaribles for each sensor
@@ -281,7 +281,7 @@ start_time = time.mktime(time.localtime()) ##### get the start time of the scrip
 retransmit_count = 0
 print('Transmission Started')
 while True:
-    print('intervals:',  msg_interval/1000, retx_interval/1000)
+    # print('intervals:',  msg_interval/1000, retx_interval/1000)
     # _testing_var += 1
     # print('que:', len(que), time.localtime())
     current_time = time.mktime(time.localtime()) ##### get the current time of the script in seconds wrt the localtime
@@ -345,17 +345,19 @@ while True:
 
     if LIMITS_BROKEN:
         add_to_que(msg, current_time)
-        print('Limit broken','len(que):', len(que))
+        # print('Limit broken','len(que):', len(que))
         lora.send(msg)  # Sends imidiately if threshold limits are broken.
         lora.recv()
+        print('##{}//'.format(ustruct.unpack(_pkng_frmt+'L',que[0][0][:-4])))
     elif cb_30_done: ##### send the messages every 30 seconds 
         # print('15 sec interval')            
         try:
             add_to_que(msg, current_time)
             lora.send(que[0][0])
             # print('len(que):', len(que))
-            print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1], current_time - start_time)   ### print the latest message(end of que) form tuple (msg, timestamp)
+            # print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1], current_time - start_time)   ### print the latest message(end of que) form tuple (msg, timestamp)
             lora.recv()
+            print('##{}//'.format(ustruct.unpack(_pkng_frmt+'L',que[0][0][:-4])))
         except Exception as e:
             print('callback 30:', e)
             # write_to_log('callback 30: {}'.format(e), str(current_time))
@@ -370,11 +372,12 @@ while True:
         cb_retrans_done = False
         retransmit_count += 1
         if que != []:
-            print('Retransmit', current_time - start_time)
-            print('len(que):', len(que))
+            # print('Retransmit', current_time - start_time)
+            # print('len(que):', len(que))
             # print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1])   ### print the latest message(end of que) form tuple (msg, timestamp)
             lora.send(que[0][0])
             lora.recv()
+            # print('##{}//'.format(ustruct.unpack(_pkng_frmt,que[0][0])))
 
         if retransmit_count >= 2:
             timer1.deinit()
