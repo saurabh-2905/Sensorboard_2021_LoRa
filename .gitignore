@@ -9,3 +9,6 @@
 *.run.xml
 *.blg
 *.idea
+sensor_values*
+log.txt
+board*_og.py
