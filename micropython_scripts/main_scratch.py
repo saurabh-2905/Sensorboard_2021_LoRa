@@ -196,7 +196,8 @@ retx_interval = 5000  ###  5 sec
 try:
     I2CBUS = I2C(1, sda=Pin(21), scl=Pin(22), freq=100000)
 except:
-    raise  # TODO:set conn_variables to sensors zero
+    # raise  # TODO:set conn_variables to sensors zero
+    write_to_log('I2C failed', str(time.mktime(time.localtime())))
 
 # establish SPI Bus and LoRa (SX1276)
 try:
@@ -204,6 +205,7 @@ try:
     lora = LoRa(SPI_BUS, True, cs=Pin(5, Pin.OUT), rx=Pin(2, Pin.IN))
 except:
     FAILED_LORA = 0
+    write_to_log('Lora failed', str(time.mktime(time.localtime())))
 
 # create sensorobjects
 try:
@@ -211,52 +213,62 @@ try:
     scd30.start_continous_measurement()
 except:
     CONNECTION_CO2 = 0
+    write_to_log('co2 failed', str(time.mktime(time.localtime())))
     # print('Connection SCD30 failed')
 
 try:
     MCP_CO = MCP3221(I2CBUS, CO_ADRR)
 except:
     CONNECTION_CO = 0
+    write_to_log('co failed', str(time.mktime(time.localtime())))
 
 try:
     MCP_O2 = MCP3221(I2CBUS, O2_ADRR)
 except:
     CONNECTION_O2 = 0
+    write_to_log('O2 failed', str(time.mktime(time.localtime())))
 
 try:
     BMP = BMP180(I2CBUS)
 except:
     CONNECTION_BMP = 0
+    write_to_log('pressure failed', str(time.mktime(time.localtime())))
 
 try:
     AM2301_1 = AM2301(AM2301_1_ADRR)
 except:
     CONNECTION_A1 = 0
+    write_to_log('AM1 failed', str(time.mktime(time.localtime())))
 
 try:
     AM2301_2 = AM2301(AM2301_2_ADRR)
 except:
     CONNECTION_A2 = 0
+    write_to_log('AM2 failed', str(time.mktime(time.localtime())))
 
 try:
     AM2301_3 = AM2301(AM2301_3_ADRR)
 except:
     CONNECTION_A3 = 0
+    write_to_log('AM3 failed', str(time.mktime(time.localtime())))
 
 try:
     AM2301_4 = AM2301(AM2301_4_ADRR)
 except:
     CONNECTION_A4 = 0
+    write_to_log('AM4 failed', str(time.mktime(time.localtime())))
 
 
 ##### Thresshold limits
-THRESHOLD_LIMITS = ((0.0, 1000.0), (0.0, 20.0), (19.5, 23.0), (950.0, 1040.0),
+THRESHOLD_LIMITS = ((0.0, 1000.0), (0.0, 20.0), (18, 23.0), (950.0, 1040.0),
                     (18.0, 30.0, 0.0, 100.0))
 
 ##### connectionvaribles for each sensor
 CONNECTION_VAR = [CONNECTION_CO2, CONNECTION_CO, CONNECTION_O2,
                   CONNECTION_BMP, CONNECTION_A1, CONNECTION_A2,
                   CONNECTION_A3, CONNECTION_A4]
+                
+SENSORS_LIST = ['CO2', 'CO', 'O2', 'BMP', 'AM1', 'AM2', 'AM3', 'AM4']
 
 # functions for taking sensor readings
 FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp, measure_am1,
@@ -323,7 +335,7 @@ while True:
                 CONNECTION_VAR[i] = 1
         except Exception as e:
             CONNECTION_VAR[i] = 0
-            # write_to_log('connection {}: {}'.format(i, e), str(current_time))
+            write_to_log(' failed {}: {}'.format(SENSORS_LIST[i], e), str(current_time))
 
         if not CONNECTION_VAR[i]:
             # Sensor failed
@@ -348,7 +360,8 @@ while True:
         # print('Limit broken','len(que):', len(que))
         lora.send(msg)  # Sends imidiately if threshold limits are broken.
         lora.recv()
-        print('##{}//'.format(ustruct.unpack(_pkng_frmt+'L',que[0][0][:-4])))
+        print('##{}//'.format(ustruct.unpack(_pkng_frmt+'L',que[0][0][:-4])))  ### exclude the 4 byte CRC
+        # print(ustruct.unpack(_pkng_frmt+'L',que[0][0][:-4]))
     elif cb_30_done: ##### send the messages every 30 seconds 
         # print('15 sec interval')            
         try:
@@ -357,10 +370,11 @@ while True:
             # print('len(que):', len(que))
             # print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1], current_time - start_time)   ### print the latest message(end of que) form tuple (msg, timestamp)
             lora.recv()
-            print('##{}//'.format(ustruct.unpack(_pkng_frmt+'L',que[0][0][:-4])))
+            print('##{}//'.format(ustruct.unpack(_pkng_frmt+'L',que[0][0][:-4]))) ### exclude the 4 byte CRC
+            # print(ustruct.unpack(_pkng_frmt+'L',que[0][0][:-4]))
         except Exception as e:
             print('callback 30:', e)
-            # write_to_log('callback 30: {}'.format(e), str(current_time))
+            write_to_log('callback 30: {}'.format(e), str(current_time))
         start_time = current_time
         timer1.init(period=retx_interval, mode=Timer.PERIODIC, callback=cb_retrans)
         timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)

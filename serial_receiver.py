@@ -12,6 +12,7 @@ with serial.Serial("COM6", 115200, timeout=10.0) as ser:
     all_values = []
     while(True):
         line = ser.readline().decode("utf-8")
+        # print(type(line))
         if line[:2] == '##'and line[-4:-2]=='//':
             # print(line[2:-4], len(line[2:]))
             current_val = line[3:-5]   #### remove brackets and identifiers for start and end of line

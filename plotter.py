@@ -17,6 +17,7 @@ for each_list in newlist:
         sensor_wise[idx] += [element]
 
 # print(list(sensor_wise.keys()))
+print(sensor_wise[12])
 keys_dict = list(sensor_wise.keys())
 for i in keys_dict[4:12]:
     if plot_titles[i][:-2] == 'temperature':

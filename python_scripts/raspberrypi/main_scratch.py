@@ -15,6 +15,7 @@ import threading
 import time
 import struct
 import numpy as np
+import pickle
 
 def write_to_log(msg):
     """
@@ -24,12 +25,12 @@ def write_to_log(msg):
         f.write(msg + "\t" + get_date_and_time() + "\n")
 
 
-def write_to_log_time(msg, timestamp):
+def write_to_log_time(msg, timestamp, rx_timestamp):
     """
     Write a given Message to the file log.txt.
     """
     with open("log.txt", "a") as f:
-        f.write(msg + "\t" + timestamp + "\n")
+        f.write(msg + "\t" + timestamp + "\t" + rx_timestamp + "\n")
 
 
 def get_date_and_time():
@@ -142,10 +143,10 @@ def check_sensors(val, id_val):
     """
     for i in range(length_failed_sensors):
         if val & comp_const:
-            sensor_connections[id_val][i] = 1
+            sensor_connections[id_val][i] = 1   ### sensor faulty
             val = val >> comp_const
         else:
-            sensor_connections[id_val][i] = 0
+            sensor_connections[id_val][i] = 0   ### sensor normal
             val = val >> comp_const
 
 
@@ -173,7 +174,7 @@ def send_mqtt(values):
         for j in range(length_values):
             CLIENT.publish(topic=_TOPICS[j].format(id_val=id_val), payload=str(values[j]))
     else:
-        check_sensors(values[length_values], id_val_index-1)
+        check_sensors(values[length_values], id_val_index-1)  ### subtract 1 from id_val since board number start from 1 but indexing start from 0
         i = 0
         for j in range(length_failed_sensors):
             if i < 4:
@@ -217,7 +218,7 @@ _Failed_sensor = "sensor{id_val}_stat_"  # Topic for the Sensorstatus
 _Limits_broken = "board{id_val}/limits"
 comp_const = 1
 length_failed_sensors = 8
-length_values = 12  # 12 sensor readings+sensor board number+limits broken+heartbeat+sensor id
+length_values = 12  # 12 sensor readings+sensor board status+limits broken+heartbeat+sensor id
 cb_timer_done = False
 sensorboard_list = dict()
 board_ids = [3982231425, 94420780, 301920073]   ### based on the manuall numbering of the boards (to map to old ids)
@@ -243,47 +244,42 @@ connect_mqtt()
 print('Receiving Packets......')
 # Start of loop
 threading.Timer(90, cb).start()
+all_values = []
 while True:
     recv_msg = receive()
     if len(recv_msg) == MESSAGE_LENGTH:   #### to differentiate between heartbeat and msg
         if struct.unpack(">L", recv_msg[-4:])[0] != crc32(0, recv_msg[:-4], 60):
             print('Invalid CRC32')
-            write_to_log_time('Invalid CRC32', str(timestamp[0]))
+            receiver_timestamp = time.localtime()
+            rx_datetime = [receiver_timestamp.tm_year, receiver_timestamp.tm_mon, receiver_timestamp.tm_mday, receiver_timestamp.tm_hour, receiver_timestamp.tm_min, receiver_timestamp.tm_sec]
+            write_to_log_time('Invalid CRC32', str(timestamp[0]), str(rx_datetime))
         else:
             values = struct.unpack(_pkng_frmt, recv_msg[:-8]) #### exclude timstamp and crc (8 bytes) to get msg
             timestamp = list(struct.unpack('>L', recv_msg[-8:-4])) ##### get timestamp
+            receiver_timestamp = time.localtime()
+            rx_datetime = [receiver_timestamp.tm_year, receiver_timestamp.tm_mon, receiver_timestamp.tm_mday, receiver_timestamp.tm_hour, receiver_timestamp.tm_min, receiver_timestamp.tm_sec]
             send(str(values[15])+','+str(timestamp[0]))
-            write_to_log_time('Received', str(timestamp[0]))
+#            print(values + tuple(timestamp) + tuple([receiver_timestamp.tm_year, receiver_timestamp.tm_mon, receiver_timestamp.tm_mday, receiver_timestamp.tm_hour, receiver_timestamp.tm_min, receiver_timestamp.tm_sec]))
+            all_values += [values + tuple(timestamp) + tuple(rx_datetime)]
+            write_to_log_time( 'Received', str(timestamp[0]), str(rx_datetime) )
             if values[15] not in list(sensorboard_list.keys()):
 #                 board_ids += [values[15]]
                 sensorboard_list[values[15]] = 1
             else:
                 sensorboard_list[values[15]] += 1
             l = list(values)
-            print(l, timestamp)
+            print(l, timestamp, [receiver_timestamp.tm_year, receiver_timestamp.tm_mon, receiver_timestamp.tm_mday, receiver_timestamp.tm_hour, receiver_timestamp.tm_min, receiver_timestamp.tm_sec])
             for i in range(len(l)):
                 if i <= 3:
                     l[i] = round(l[i], 2)
                 elif i <= 11:
                     l[i] = round(l[i], 1)
 
-#             if l[0] > 40000 or l[0] < 0 or l[1] > 1000 or l[1] < 0 or l[2] > 25 or l[2] < 0 or l[3] > 1100 or l[3] < 300 or l[4] > 80 or l[4] < -40 or l[5] > 100 or l[5] < 0 or l[6] > 80 or l[6] < -40 or l[7] > 100 or l[7] < 0 or l[8] > 80 or l[8] < -40 or l[9] > 100 or l[9] < 0 or l[10] > 80 or l[10] < -40 or l[11] > 100 or l[11] < 0 or l[12] > 255 or l[12] < 0 or l[13] < 0 or l[13] > 1:
-#                 time.sleep(0.05)  # OPTIMIZE!
-#                 # send(str(l[15]))
-#                 print("Limit error for MQTT")
-#                 write_to_log_time('Limit error for MQTT: {}'. format(l), str(timestamp[0]))
-# 
-#             else:
-#                 send_mqtt(l)
-#                 time.sleep(0.05)  # OPTIMIZE!
-#                 # send(str(l[15]))
-#                 print("Sent to MQTT")  # to be removed
-
             send_mqtt(l)
             print("Sent to MQTT")
     else:
         print('Short message:', len(recv_msg))
-        write_to_log_time('Short message:{}'.format(len(recv_msg)), str(timestamp[0]))
+        write_to_log_time('Short message:{}'.format(len(recv_msg)), str(timestamp[0]), str(rx_datetime))
 
     if cb_timer_done:
         for each_board in list(sensorboard_list.keys()):
@@ -298,6 +294,11 @@ while True:
                 print('signal_count:', signal_count)
                 CLIENT.publish(topic=_Failed_times.format(id_val=old_board_id), payload="1000")
             sensorboard_list[each_board] = 0
+
+        with open('sensor_values_raspbery.pkl', 'wb') as f:   ### store the values for visualization
+            pickle.dump(all_values, f)
         # print('sensorboard_list:', sensorboard_list)
         cb_timer_done = False
         threading.Timer(90, cb).start()
+
+
