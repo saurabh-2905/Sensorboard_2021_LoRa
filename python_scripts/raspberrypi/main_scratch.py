@@ -286,10 +286,10 @@ while True:
             print(each_board)
             old_board_id = map_board_ids(each_board)
             signal_count = sensorboard_list[each_board]
-            if signal_count < 2:
+            if signal_count < 1:
                 print('Board {} not working'.format(old_board_id))
                 CLIENT.publish(topic=_Failed_times.format(id_val=old_board_id), payload="10000")
-                publish_failed_board("{}".format(old_board_id))
+                # publish_failed_board("{}".format(old_board_id))
             else:
                 print('signal_count:', signal_count)
                 CLIENT.publish(topic=_Failed_times.format(id_val=old_board_id), payload="1000")
