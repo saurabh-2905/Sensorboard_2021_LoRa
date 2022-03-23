@@ -29,9 +29,10 @@ AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
 SENSORBOARD_ID = const(1)
 MAX_QUE = const(3)
-
+_pkng_frmt = '>12f4H'
 # Heartbeat signal
-heartbeat_msg = ustruct.pack('ffffffffffffIIII', 0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,SENSORBOARD_ID)
+# heartbeat_msg = ustruct.pack('ffffffffffffIIII', 0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,SENSORBOARD_ID)
+heartbeat_msg = ustruct.pack(_pkng_frmt, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,SENSORBOARD_ID)
 
 # Connection_variables initialisation
 FAILED_LORA = 1
@@ -50,6 +51,10 @@ am_temp = 0
 am_hum = 0 
 que = []
 error = 0
+dropped_packets = []
+
+cb_30_done = False
+cb_hb_done = False
 
 # establish I2c Bus
 try:
@@ -70,6 +75,7 @@ try:
     scd30.start_continous_measurement()
 except:
     CONNECTION_CO2 = 0
+    print('Connection SCD30 failed')
 
 try:
     MCP_CO = MCP3221(I2CBUS, CO_ADRR)
@@ -170,23 +176,18 @@ def cb_30(p):
     """
     Sends the current readings from the sensors.
     """
-    global que
-    global error
-    try:
-        uheapq.heappush(que, msg)
-    except:
-        error = 1
-        que = []
-    lora.send(que[0])
-    lora.recv()
+    global cb_30_done 
+
+    cb_30_done = True
 
 
 def cb_hb(p):
     """
     Sends the heartbeat signal.
     """
-    lora.send(heartbeat_msg)
-    lora.recv()
+    global cb_hb_done
+
+    cb_hb_done = True
 
 
 def cb_lora(p):
@@ -199,10 +200,8 @@ def cb_lora(p):
         rcv_msg = p.decode()
         if int(rcv_msg) == SENSORBOARD_ID:
             uheapq.heappop(que)
-            if len(que) > MAX_QUE:
-                que = []
-    except Exception:
-        pass
+    except Exception as e:
+        print('callback lora', e)    ### catch if any error
 
 
 # Thresshold limits
@@ -239,7 +238,10 @@ timer1.init(period=3500, mode=Timer.PERIODIC, callback=cb_hb)
 SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 # infinite loop execution
+_testing_var = 0
 while True:
+#     print(_testing_var)
+    # print('que:', len(que), time.localtime())
     SENSOR_STATUS = 0
     LIMITS_BROKEN = 0
     j = 6
@@ -287,13 +289,42 @@ while True:
                 SENSOR_STATUS += 2**(i)
             else:
                 SENSOR_STATUS += 2**(i)
-    msg = ustruct.pack('ffffffffffffIIII', SENSOR_DATA[0], SENSOR_DATA[3],
+    msg = ustruct.pack(_pkng_frmt, SENSOR_DATA[0], SENSOR_DATA[3],
                        SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
                        SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
                        SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
                        SENSOR_DATA[13], SENSOR_STATUS,
                        LIMITS_BROKEN, 0, SENSORBOARD_ID)  # current Sensorreadings
 
+    if cb_30_done == True:
+        try:
+            print('len(que):', len(que))
+            if que != []:
+                print('{} packets dropped'.format(len(que)))
+                dropped_packets += [que[0]]
+                que = []
+                uheapq.heappush(que, (msg, time.localtime()))
+            else:
+                uheapq.heappush(que, (msg, time.localtime()))
+            print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1])   ### print the latest message form tuple (msg, timestamp)
+            lora.send(que[0][0])
+            lora.recv()
+        except Exception as e:
+            print('callback 30:', e)
+            error = 1
+        cb_30_done = False
+    
+    if cb_hb_done == True:
+        print('heartbeat:', ustruct.unpack(_pkng_frmt, heartbeat_msg), time.localtime())
+        lora.send(heartbeat_msg)
+        lora.recv()
+        cb_hb_done = False
+    
     if LIMITS_BROKEN:
+        # print('msg:', ustruct.unpack(_pkng_frmt, msg), time.localtime())   ### print the latest message form tuple (msg, timestamp)
         lora.send(msg)  # Sends imidiately if threshold limits are broken.
         lora.recv()
+    
+    _testing_var += 1
+
+
