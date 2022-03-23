@@ -1,5 +1,5 @@
 # -------------------------------------------------------------------------------
-# author: Malavika Unnikrishnan, Florian Stechmann, Saurabh Band
+# author: Malavika Unnikrishnan, Florian Stechmann
 # date: 28.09.2021
 # function: Implements a normal board. Sends values every 30 secs, if threshhold
 #           limits are broken every ~2 secs.
@@ -49,7 +49,7 @@ scd_hum = 0
 am_temp = 0 
 am_hum = 0 
 que = []
-flag_send = 0
+error = 0
 
 # establish I2c Bus
 try:
@@ -170,15 +170,22 @@ def cb_30(p):
     """
     Sends the current readings from the sensors.
     """
-    global flag_send
-    flag_send = 1
+    global que
+    global error
+    try:
+        uheapq.heappush(que, msg)
+    except:
+        error = 1
+        que = []
+    lora.send(que[0])
+    lora.recv()
 
 
 def cb_hb(p):
     """
     Sends the heartbeat signal.
     """
-    lora.send(heartbeat_msg)  # How to remove sending from this callback?
+    lora.send(heartbeat_msg)
     lora.recv()
 
 
@@ -248,7 +255,7 @@ while True:
                     scd_co2, scd_temp, scd_hum = reading_co2
                     if not (THRESHOLD_LIMITS[i][0] <= scd_co2 <= THRESHOLD_LIMITS[i][1]):
                         LIMITS_BROKEN = 1
-                SENSOR_DATA[0] = round(scd_co2, 2)
+                SENSOR_DATA[0] = round(scd_co2, 2) 
                 SENSOR_DATA[1] = round(scd_temp, 2)
                 SENSOR_DATA[2] = round(scd_hum, 2)
             elif 1 <= i <= 3:
@@ -256,7 +263,7 @@ while True:
                 var = func_call()
                 if not (THRESHOLD_LIMITS[i][0] <= var <= THRESHOLD_LIMITS[i][1]):
                     LIMITS_BROKEN = 1
-                SENSOR_DATA[i+2] = round(var, 2)
+                SENSOR_DATA[i+2] = round(var, 2)  
             else:
                 # AM2301 readings(involves 2 values)
                 am_temp, am_hum = func_call()
@@ -286,11 +293,6 @@ while True:
                        SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
                        SENSOR_DATA[13], SENSOR_STATUS,
                        LIMITS_BROKEN, 0, SENSORBOARD_ID)  # current Sensorreadings
-    if flag_send:
-        uheapq.heappush(que, msg)
-        lora.send(que[0])
-        flag_send = 0
-        lora.recv()
 
     if LIMITS_BROKEN:
         lora.send(msg)  # Sends imidiately if threshold limits are broken.
