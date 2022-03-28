@@ -1,19 +1,25 @@
-###########################################################################
-##### code for esp32 board with lora module #######
-#### trial and error to solve the existing problems: the error in received data randomly, missynchronization of boards due to static intervela of msgs and heartbeat signals ###
-###########################################################################
+# -------------------------------------------------------------------------------
+# author: Malavika Unnikrishnan, Florian Stechmann, Saurabh Band
+# date: 28.03.2022
+# function: code for esp32 board with lora module
+# trial and error to solve the existing problems: the error in received data
+# randomly, missynchronization of boards due to static intervela of msgs
+# and heartbeat signals.
+# -------------------------------------------------------------------------------
 
 from machine import Pin, I2C, SoftSPI, Timer
 import machine
 import micropython
 import ustruct, ubinascii, uhashlib
+import time
+import random
+
 from scd30 import SCD30
 from lora import LoRa
 from mcp3221 import MCP3221
 from bmp180 import BMP180
 from am2301 import AM2301
-import time
-import random
+
 
 def measure_scd30():
     """
@@ -75,13 +81,27 @@ def measure_am4():
 
 
 def cb_30(p):
+    """
+    Callback for the sending of msgs.
+    """
     global cb_30_done
     cb_30_done = True
 
 
 def cb_retrans(p):
-    global cb_retrans_done 
+    """
+    Callback for resending msgs.
+    """
+    global cb_retrans_done
     cb_retrans_done = True
+
+
+def cb_am(p):
+    """
+    Callback for no spikes in the ams.
+    """
+    global am_timer_done
+    am_timer_done = True
 
 
 def cb_lora(p):
@@ -96,20 +116,17 @@ def cb_lora(p):
         if int(board_id) == SENSORBOARD_ID:
             for each_pkt in que:
                 if each_pkt[1] == int(timestamp):
-                    que.remove(each_pkt)  #### remove the pkt with desried timestamp
-                    # print('Ack:', board_id, timestamp,)
-                    # print('len(que):', len(que))
+                    que.remove(each_pkt)  # remove the pkt with desried timestamp
     except Exception as e:
-        print('callback lora', e)    ### catch if any error
-        # write_to_log('callback lora: {}'.format(e), str( time.mktime(time.localtime()) ) )
+        write_to_log('callback lora: {}'.format(e), str( ime.mktime(time.localtime())))
 
 
 def crc32(crc, p, len):
-    '''
+    """
     crc = 0
     p = message
     len = length of msg
-    '''
+    """
     crc = 0xffffffff & ~crc
     for i in range(len):
         crc = crc ^ p[i]
@@ -127,38 +144,47 @@ def write_to_log(msg, timestamp):
 
 
 def add_to_que(msg, current_time):
+    """
+    Adds given msg to the que with a given timestamp
+    """
     global que
     if len(que) >= MAX_QUEUE:
-        dropped = que.pop() ###### pop the packet from the end of que (the oldest packet)
-        # print('packet dropped: {}'.format(dropped))
-        que = [(msg, current_time)] + que  #### add the newest msg at the front of que 
+        # pop the packet from the end of que (the oldest packet)
+        que.pop()
+        # add the newest msg at the front of que
+        que = [(msg, current_time)] + que
     else:
         que = [(msg, current_time)] + que
 
 
 def get_nodename():
+    """
+    Retuns the unique_id of the esp32
+    """
     uuid = ubinascii.hexlify(machine.unique_id()).decode()
     node_name = "ESP_" + uuid
     return node_name
 
 
 def get_node_id(hex=False):
-    node_id = ubinascii.hexlify(uhashlib.sha1(machine.unique_id()).digest()).decode("utf-8")[-8:] # 4 bytes unsigned int
+    """
+    """
+    node_id = ubinascii.hexlify(uhashlib.sha1(machine.unique_id()).digest()).decode("utf-8")[-8:]    # 4 bytes unsigned int
     if hex:
         return node_id
     else:
         return int(node_id, 16)
-    
 
-#### Allcoate emergeny buffer for interrupt signals
+
+# Allcoate emergeny buffer for interrupt signals
 micropython.alloc_emergency_exception_buf(100)
 
-#### packing format
+# packing format
 _pkng_frmt = '>12f3HI'
 SENSORBOARD_ID = get_node_id()
 
-######### constants and variables##########
-##### addresses of sensors
+# ------------------------ constants and variables ----------------------------
+# addresses of sensors
 O2_ADRR = const(0x48)
 CO_ADRR = const(0x49)
 SCD30_ADRR = const(0x61)
@@ -166,8 +192,6 @@ AM2301_1_ADRR = const(0)
 AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
-# MSG_INTERVAL = const(30)
-# RETX_INTERVAL = const(5)
 
 # Connection_variables initialisation
 FAILED_LORA = 1
@@ -183,16 +207,17 @@ MAX_QUEUE = const(10)
 scd_co2 = 0
 scd_temp = 0
 scd_hum = 0
-am_temp = 0 
-am_hum = 0 
+am_temp = 0
+am_hum = 0
 que = []
 cb_30_done = False
 cb_retrans_done = False
-msg_interval = 30000  ### 30 sec
-retx_interval = 5000  ###  5 sec
+am_timer_done = False
+msg_interval = 30000  # 30 sec
+retx_interval = 5000  # 5 sec
 
-############# establish connections ###################
-## establish I2c Bus
+# ------------------------ establish connections ------------------------------
+# establish I2c Bus
 try:
     I2CBUS = I2C(1, sda=Pin(21), scl=Pin(22), freq=100000)
 except:
@@ -259,44 +284,49 @@ except:
     write_to_log('AM4 failed', str(time.mktime(time.localtime())))
 
 
-##### Thresshold limits
+# Thresshold limits
 THRESHOLD_LIMITS = ((0.0, 1000.0), (0.0, 20.0), (18, 23.0), (950.0, 1040.0),
                     (18.0, 30.0, 0.0, 100.0))
 
-##### connectionvaribles for each sensor
-CONNECTION_VAR = [CONNECTION_CO2, CONNECTION_CO, CONNECTION_O2,
-                  CONNECTION_BMP, CONNECTION_A1, CONNECTION_A2,
+# connectionvaribles for each sensor
+CONNECTION_VAR = [CONNECTION_CO2, CONNECTION_CO,
+                  CONNECTION_O2, CONNECTION_BMP,
+                  CONNECTION_A1, CONNECTION_A2,
                   CONNECTION_A3, CONNECTION_A4]
-                
+
 SENSORS_LIST = ['CO2', 'CO', 'O2', 'BMP', 'AM1', 'AM2', 'AM3', 'AM4']
 
 # functions for taking sensor readings
-FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp, measure_am1,
-            measure_am2, measure_am3, measure_am4)
+FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp,
+            measure_am1, measure_am2, measure_am3, measure_am4)
 
 # Create Timers
 timer0 = Timer(0)
 timer1 = Timer(1)
+timer_am = Timer(2)
 
 # Set callback for LoRa (recv as IR)
 lora.on_recv(cb_lora)
 
-SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]   ###### sensor readings list init
+# sensor readings list init
+SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
-############### infinite loop execution ###########################
-msg = ""      ##### msg init
-# _testing_var = 0
+# ------------------------ infinite loop execution ----------------------------
+msg = ""  # msg init
 
+# initialize timers
 timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
+timer_am.init(period=2000, mode=Timer.PERIODIC, callback=cb_am)
 
-start_time = time.mktime(time.localtime()) ##### get the start time of the script in seconds wrt the localtime
+# get the start time of the script in seconds wrt the localtime
+start_time = time.mktime(time.localtime())
 retransmit_count = 0
+
 print('Transmission Started')
+
 while True:
-    # print('intervals:',  msg_interval/1000, retx_interval/1000)
-    # _testing_var += 1
-    # print('que:', len(que), time.localtime())
-    current_time = time.mktime(time.localtime()) ##### get the current time of the script in seconds wrt the localtime
+    # get the current time of the script in seconds wrt the localtime
+    current_time = time.mktime(time.localtime())
     SENSOR_STATUS = 0
     LIMITS_BROKEN = 0
     j = 6
@@ -312,7 +342,7 @@ while True:
                     scd_co2, scd_temp, scd_hum = reading_co2
                     if not (THRESHOLD_LIMITS[i][0] <= scd_co2 <= THRESHOLD_LIMITS[i][1]):
                         LIMITS_BROKEN = 1
-                SENSOR_DATA[0] = round(scd_co2, 2) 
+                SENSOR_DATA[0] = round(scd_co2, 2)
                 SENSOR_DATA[1] = round(scd_temp, 2)
                 SENSOR_DATA[2] = round(scd_hum, 2)
             elif 1 <= i <= 3:
@@ -320,16 +350,21 @@ while True:
                 var = func_call()
                 if not (THRESHOLD_LIMITS[i][0] <= var <= THRESHOLD_LIMITS[i][1]):
                     LIMITS_BROKEN = 1
-                SENSOR_DATA[i+2] = round(var, 2)  
+                SENSOR_DATA[i+2] = round(var, 2)
             else:
                 # AM2301 readings(involves 2 values)
-                am_temp, am_hum = func_call()
-                if not (THRESHOLD_LIMITS[4][0] <= am_temp <= THRESHOLD_LIMITS[4][1]):
-                    LIMITS_BROKEN = 1
-                if not (THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]):
-                    LIMITS_BROKEN = 1
-                SENSOR_DATA[j] = am_temp 
-                SENSOR_DATA[j+1] = am_hum  
+                if am_timer_done:
+                    am_temp, am_hum = func_call()
+                    if not (THRESHOLD_LIMITS[4][0] <= am_temp <= THRESHOLD_LIMITS[4][1]):
+                        LIMITS_BROKEN = 1
+                    if not (THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]):
+                        LIMITS_BROKEN = 1
+                else:
+                    # 200 indicating, sensor is not ready
+                    am_temp = 200
+                    am_hum = 200
+                SENSOR_DATA[j] = am_temp
+                SENSOR_DATA[j+1] = am_hum
                 j += 2
             if CONNECTION_VAR[i] == 0:
                 CONNECTION_VAR[i] = 1
@@ -345,56 +380,41 @@ while True:
                 SENSOR_STATUS += 2**(i)
             else:
                 SENSOR_STATUS += 2**(i)
-    ####### prepare the packted to be sent
+    # prepare the packted to be sent
     msg = ustruct.pack(_pkng_frmt, SENSOR_DATA[0], SENSOR_DATA[3],
                        SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
                        SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
                        SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
                        SENSOR_DATA[13], SENSOR_STATUS,
                        LIMITS_BROKEN, 0, SENSORBOARD_ID)  # current Sensorreadings
-    msg += ustruct.pack(">L", current_time)  ##### add timestamp to the msg
-    msg += ustruct.pack(">L", crc32(0, msg, 60))  ##### add 32-bit crc (4 bytes) to the msg
+    msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
+    msg += ustruct.pack(">L", crc32(0, msg, 60))  # add 32-bit crc (4 bytes) to the msg
 
     if LIMITS_BROKEN:
         add_to_que(msg, current_time)
-        # print('Limit broken','len(que):', len(que))
         lora.send(msg)  # Sends imidiately if threshold limits are broken.
         lora.recv()
-        print('##{}//'.format(ustruct.unpack(_pkng_frmt+'L',que[0][0][:-4])))  ### exclude the 4 byte CRC
-        # print(ustruct.unpack(_pkng_frmt+'L',que[0][0][:-4]))
-    elif cb_30_done: ##### send the messages every 30 seconds 
-        # print('15 sec interval')            
+    elif cb_30_done:  # send the messages every 30 seconds
         try:
             add_to_que(msg, current_time)
             lora.send(que[0][0])
-            # print('len(que):', len(que))
-            # print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1], current_time - start_time)   ### print the latest message(end of que) form tuple (msg, timestamp)
+            # print the latest message(end of que) form tuple (msg, timestamp)
             lora.recv()
-            print('##{}//'.format(ustruct.unpack(_pkng_frmt+'L',que[0][0][:-4]))) ### exclude the 4 byte CRC
-            # print(ustruct.unpack(_pkng_frmt+'L',que[0][0][:-4]))
         except Exception as e:
-            print('callback 30:', e)
             write_to_log('callback 30: {}'.format(e), str(current_time))
         start_time = current_time
         timer1.init(period=retx_interval, mode=Timer.PERIODIC, callback=cb_retrans)
         timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
         cb_30_done = False
-        if random.random() >= 0.4:   ## randoomize the msg interval to avoid continous collision of packets
-            msg_interval = random.randrange(20000,40000, 1000)   ### select time randomly with steps of 1000ms, because the max on air time is 123ms and 390ms for SF7 and SF9 resp.     
-            retx_interval = random.randrange(2000,10000, 1000)   ### select random time interval with step size of 1 sec
-    elif cb_retrans_done: #### retransmit every 5 seconds for piled up packets with no ack
+        if random.random() >= 0.4:   # randoomize the msg interval to avoid continous collision of packets
+            msg_interval = random.randrange(20000, 40000, 1000)  # select time randomly with steps of 1000ms, because the max on air time is 123ms and 390ms for SF7 and SF9 resp.
+            retx_interval = random.randrange(2000, 10000, 1000)  # select random time interval with step size of 1 sec
+    elif cb_retrans_done:  # retransmit every 5 seconds for piled up packets with no ack
         cb_retrans_done = False
         retransmit_count += 1
         if que != []:
-            # print('Retransmit', current_time - start_time)
-            # print('len(que):', len(que))
-            # print('msg:', ustruct.unpack(_pkng_frmt, que[0][0]), que[0][1])   ### print the latest message(end of que) form tuple (msg, timestamp)
             lora.send(que[0][0])
             lora.recv()
-            # print('##{}//'.format(ustruct.unpack(_pkng_frmt,que[0][0])))
-
         if retransmit_count >= 2:
             timer1.deinit()
             retransmit_count = 0
-
-
