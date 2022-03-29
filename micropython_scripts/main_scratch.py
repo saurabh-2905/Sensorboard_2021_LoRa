@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Malavika Unnikrishnan, Florian Stechmann, Saurabh Band
-# date: 28.03.2022
+# date: 29.03.2022
 # function: code for esp32 board with lora module
 # trial and error to solve the existing problems: the error in received data
 # randomly, missynchronization of boards due to static intervela of msgs
@@ -19,6 +19,8 @@ from lora import LoRa
 from mcp3221 import MCP3221
 from bmp180 import BMP180
 from am2301 import AM2301
+
+# ------------------------ function declaration -------------------------------
 
 
 def measure_scd30():
@@ -104,6 +106,15 @@ def cb_am(p):
     am_timer_done = True
 
 
+def cb_hb(p):
+    """
+    Callback for heartbeat, sets boolean indicating
+    that the hearbeat is to be send.
+    """
+    global cb_hb_done
+    cb_hb_done = True
+
+
 def cb_lora(p):
     """
     Callbackfunction for LoRa functionality.
@@ -169,8 +180,11 @@ def get_nodename():
 
 def get_node_id(hex=False):
     """
+    Get node id, which consists of four bytes unsigned int.
+    Return as hex, according to parameter.
     """
-    node_id = ubinascii.hexlify(uhashlib.sha1(machine.unique_id()).digest()).decode("utf-8")[-8:]    # 4 bytes unsigned int
+    node_id = ubinascii.hexlify(uhashlib.sha1(
+        machine.unique_id()).digest()).decode("utf-8")[-8:]
     if hex:
         return node_id
     else:
@@ -194,7 +208,7 @@ AM2301_2_ADRR = const(4)
 AM2301_3_ADRR = const(17)
 AM2301_4_ADRR = const(16)
 
-# Connection_variables initialisation
+# connection_variables init for sensors
 FAILED_LORA = 1
 CONNECTION_CO2 = 1
 CONNECTION_CO = 1
@@ -210,18 +224,29 @@ scd_temp = 0
 scd_hum = 0
 am_temp = 0
 am_hum = 0
+
+# list for measurements values
 que = []
+
+# init cb booleans
 cb_30_done = False
 cb_retrans_done = False
+cb_hb_done = False
 am_timer_done = False
+
+# init msg intervals
 msg_interval = 30000  # 30 sec
 retx_interval = 5000  # 5 sec
+
+# init heartbeat msg
+hb_msg = ustruct.pack(">L", SENSORBOARD_ID)
+hb_msg += ustruct.pack(">L", crc32(0, hb_msg, 4))  # 4 correct?
 
 # ------------------------ establish connections ------------------------------
 # establish I2c Bus
 try:
     I2CBUS = I2C(1, sda=Pin(21), scl=Pin(22), freq=100000)
-except:
+except Exception:
     # raise  # TODO:set conn_variables to sensors zero
     write_to_log('I2C failed', str(time.mktime(time.localtime())))
 
@@ -230,7 +255,7 @@ try:
     SPI_BUS = SoftSPI(baudrate=10000000, sck=Pin(18, Pin.OUT),
                       mosi=Pin(23, Pin.OUT), miso=Pin(19, Pin.IN))
     lora = LoRa(SPI_BUS, True, cs=Pin(5, Pin.OUT), rx=Pin(2, Pin.IN))
-except:
+except Exception:
     FAILED_LORA = 0
     write_to_log('Lora failed', str(time.mktime(time.localtime())))
 
@@ -238,50 +263,50 @@ except:
 try:
     scd30 = SCD30(I2CBUS, SCD30_ADRR)
     scd30.start_continous_measurement()
-except:
+except Exception:
     CONNECTION_CO2 = 0
     write_to_log('co2 failed', str(time.mktime(time.localtime())))
     # print('Connection SCD30 failed')
 
 try:
     MCP_CO = MCP3221(I2CBUS, CO_ADRR)
-except:
+except Exception:
     CONNECTION_CO = 0
     write_to_log('co failed', str(time.mktime(time.localtime())))
 
 try:
     MCP_O2 = MCP3221(I2CBUS, O2_ADRR)
-except:
+except Exception:
     CONNECTION_O2 = 0
     write_to_log('O2 failed', str(time.mktime(time.localtime())))
 
 try:
     BMP = BMP180(I2CBUS)
-except:
+except Exception:
     CONNECTION_BMP = 0
     write_to_log('pressure failed', str(time.mktime(time.localtime())))
 
 try:
     AM2301_1 = AM2301(AM2301_1_ADRR)
-except:
+except Exception:
     CONNECTION_A1 = 0
     write_to_log('AM1 failed', str(time.mktime(time.localtime())))
 
 try:
     AM2301_2 = AM2301(AM2301_2_ADRR)
-except:
+except Exception:
     CONNECTION_A2 = 0
     write_to_log('AM2 failed', str(time.mktime(time.localtime())))
 
 try:
     AM2301_3 = AM2301(AM2301_3_ADRR)
-except:
+except Exception:
     CONNECTION_A3 = 0
     write_to_log('AM3 failed', str(time.mktime(time.localtime())))
 
 try:
     AM2301_4 = AM2301(AM2301_4_ADRR)
-except:
+except Exception:
     CONNECTION_A4 = 0
     write_to_log('AM4 failed', str(time.mktime(time.localtime())))
 
@@ -306,6 +331,7 @@ FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp,
 timer0 = Timer(0)
 timer1 = Timer(1)
 timer_am = Timer(2)
+timer_hb = Timer(3)
 
 # Set callback for LoRa (recv as IR)
 lora.on_recv(cb_lora)
@@ -317,8 +343,12 @@ SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 msg = ""  # msg init
 
 # initialize timers
+# Timer for sending msgs with measurement values + timestamp + crc
 timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
+# Timer for am, which need 2s. Maybe add 0.1s for security
 timer_am.init(period=2000, mode=Timer.PERIODIC, callback=cb_am)
+# Timer for sending the heartbeat signal
+timer_hb.init(period=2500, mode=Timer.PERIODIC, callback=cb_hb)
 
 # get the start time of the script in seconds wrt the localtime
 start_time = time.mktime(time.localtime())
@@ -391,12 +421,17 @@ while True:
                        SENSOR_DATA[13], SENSOR_STATUS,
                        LIMITS_BROKEN, 0, SENSORBOARD_ID)  # current Sensorreadings
     msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
-    msg += ustruct.pack(">L", crc32(0, msg, 60))  # add 32-bit crc to the msg
+    msg += ustruct.pack(">L", crc32(0, msg, 60))  # add 32-bit crc to the msg, 60 => 62?
 
     if LIMITS_BROKEN:
         add_to_que(msg, current_time)
         lora.send(msg)  # Sends imidiately if threshold limits are broken.
         lora.recv()
+    elif cb_hb_done and not cb_30_done:
+        cb_hb_done = False
+        lora.send(hb_msg)
+        lora.recv()
+        # if heartbeats collide, add randomization as seen below
     elif cb_30_done:  # send the messages every 30 seconds
         try:
             add_to_que(msg, current_time)
@@ -405,17 +440,23 @@ while True:
             lora.recv()
         except Exception as e:
             write_to_log('callback 30: {}'.format(e), str(current_time))
+
         start_time = current_time
         timer1.init(period=retx_interval, mode=Timer.PERIODIC, callback=cb_retrans)
         timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
-        cb_30_done = False
-        # randoomize the msg interval to avoid continous collision of packets
+
+        # randomize the msg interval to avoid continous collision of packets
         if random.random() >= 0.4:
             # select time randomly with steps of 1000ms, because the max on
             # air time is 123ms and 390ms for SF7 and SF9 resp.
             msg_interval = random.randrange(20000, 40000, 1000)
             # select random time interval with step size of 1 sec
             retx_interval = random.randrange(2000, 10000, 1000)
+
+        # reset timer booleans
+        cb_30_done = False
+        if cb_hb_done:
+            cb_hb_done = False
     elif cb_retrans_done:  # retransmit every 5 seconds for piled up packets with no ack
         cb_retrans_done = False
         retransmit_count += 1

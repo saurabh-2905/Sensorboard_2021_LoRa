@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika Unnikrishnan, Saurabh Band
-# date: 28.03.2022
+# date: 29.03.2022
 # function: Implentation of a LoRa receiving LoPy, which after receiving checks
 #           if any of the received data is not valid. If any data is not valid
 #           it wont be send via MQTT, otherwise it will.
@@ -270,14 +270,14 @@ while True:
     recv_msg = receive()
     if len(recv_msg) == MESSAGE_LENGTH:  # to differentiate between heartbeat and msg
         if struct.unpack(">L", recv_msg[-4:])[0] != crc32(0, recv_msg[:-4], 60):
-            print('Invalid CRC32')
+            print('Invalid CRC32 in msg')
             receiver_timestamp = time.localtime()
             rx_datetime = create_timestamp(receiver_timestamp)
-            write_to_log_time('Invalid CRC32 : ', str(rx_datetime))
+            write_to_log_time('Invalid CRC32 in msg: ', str(rx_datetime))
         else:
             # exclude timstamp and crc (8 bytes) to get msg
             values = struct.unpack(_pkng_frmt, recv_msg[:-8])
-            timestamp = list(struct.unpack('>L', recv_msg[-8:-4]))
+            timestamp = list(struct.unpack(">L", recv_msg[-8:-4]))
             receiver_timestamp = time.localtime()
             rx_datetime = create_timestamp(receiver_timestamp)
 
@@ -286,7 +286,7 @@ while True:
 
             # save data for log and later visualization
             all_values += [values + tuple(timestamp) + tuple(rx_datetime)]
-            write_to_log_time("Received", str(timestamp[0]), str(rx_datetime))
+            write_to_log_time("Received ", str(timestamp[0]), str(rx_datetime))
 
             # add sensorboard to list for heartbeat count
             if values[15] not in list(sensorboard_list.keys()):
@@ -305,9 +305,20 @@ while True:
             send_mqtt(value_list)
             print("Sent to MQTT")
     else:
-        print('Short message:', len(recv_msg))
-        write_to_log_time('Short message:{}'.format(len(recv_msg)),
-                          str(timestamp[0]), str(rx_datetime))
+        if not struct.unpakc(">L", recv_msg[-4:])[0] == crc32(0, recv_msg[:-4], 4):
+            print('Invalid CRC32 in heartbeat')
+            receiver_timestamp = time.localtime()
+            rx_datetime = create_timestamp(receiver_timestamp)
+            write_to_log_time('Invalid CRC32 in heartbeat: ', str(rx_datetime))
+        else:
+            hb_msg = struct.unpack(">L", recv_msg[:-4])[0]
+            if hb_msg not in list(sensorboard_list.keys()):
+                sensorboard_list[hb_msg] = 1
+            else:
+                sensorboard_list[hb_msg] += 1
+            print('Heartbeat:', len(recv_msg))
+            write_to_log_time('Heartbeat: {}'.format(len(recv_msg)),
+                              str(timestamp[0]), str(rx_datetime))
 
     # checks if any boards are not working
     if cb_timer_done:
