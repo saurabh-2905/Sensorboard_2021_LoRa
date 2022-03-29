@@ -82,7 +82,7 @@ def measure_am4():
 
 def cb_30(p):
     """
-    Callback for the sending of msgs.
+    Callback for the sending of msgs every btw 20s-40s.
     """
     global cb_30_done
     cb_30_done = True
@@ -116,9 +116,10 @@ def cb_lora(p):
         if int(board_id) == SENSORBOARD_ID:
             for each_pkt in que:
                 if each_pkt[1] == int(timestamp):
-                    que.remove(each_pkt)  # remove the pkt with desried timestamp
+                    que.remove(each_pkt)
     except Exception as e:
-        write_to_log('callback lora: {}'.format(e), str( ime.mktime(time.localtime())))
+        write_to_log('callback lora: {}'.format(e),
+                     str(time.mktime(time.localtime())))
 
 
 def crc32(crc, p, len):
@@ -226,7 +227,8 @@ except:
 
 # establish SPI Bus and LoRa (SX1276)
 try:
-    SPI_BUS = SoftSPI(baudrate=10000000, sck=Pin(18, Pin.OUT), mosi=Pin(23, Pin.OUT), miso=Pin(19, Pin.IN))
+    SPI_BUS = SoftSPI(baudrate=10000000, sck=Pin(18, Pin.OUT),
+                      mosi=Pin(23, Pin.OUT), miso=Pin(19, Pin.IN))
     lora = LoRa(SPI_BUS, True, cs=Pin(5, Pin.OUT), rx=Pin(2, Pin.IN))
 except:
     FAILED_LORA = 0
@@ -370,7 +372,8 @@ while True:
                 CONNECTION_VAR[i] = 1
         except Exception as e:
             CONNECTION_VAR[i] = 0
-            write_to_log(' failed {}: {}'.format(SENSORS_LIST[i], e), str(current_time))
+            write_to_log(' failed {}: {}'.format(SENSORS_LIST[i], e),
+                         str(current_time))
 
         if not CONNECTION_VAR[i]:
             # Sensor failed
@@ -388,7 +391,7 @@ while True:
                        SENSOR_DATA[13], SENSOR_STATUS,
                        LIMITS_BROKEN, 0, SENSORBOARD_ID)  # current Sensorreadings
     msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
-    msg += ustruct.pack(">L", crc32(0, msg, 60))  # add 32-bit crc (4 bytes) to the msg
+    msg += ustruct.pack(">L", crc32(0, msg, 60))  # add 32-bit crc to the msg
 
     if LIMITS_BROKEN:
         add_to_que(msg, current_time)
@@ -406,9 +409,13 @@ while True:
         timer1.init(period=retx_interval, mode=Timer.PERIODIC, callback=cb_retrans)
         timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
         cb_30_done = False
-        if random.random() >= 0.4:   # randoomize the msg interval to avoid continous collision of packets
-            msg_interval = random.randrange(20000, 40000, 1000)  # select time randomly with steps of 1000ms, because the max on air time is 123ms and 390ms for SF7 and SF9 resp.
-            retx_interval = random.randrange(2000, 10000, 1000)  # select random time interval with step size of 1 sec
+        # randoomize the msg interval to avoid continous collision of packets
+        if random.random() >= 0.4:
+            # select time randomly with steps of 1000ms, because the max on
+            # air time is 123ms and 390ms for SF7 and SF9 resp.
+            msg_interval = random.randrange(20000, 40000, 1000)
+            # select random time interval with step size of 1 sec
+            retx_interval = random.randrange(2000, 10000, 1000)
     elif cb_retrans_done:  # retransmit every 5 seconds for piled up packets with no ack
         cb_retrans_done = False
         retransmit_count += 1
