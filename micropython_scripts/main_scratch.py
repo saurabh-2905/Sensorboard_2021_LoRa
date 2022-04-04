@@ -352,8 +352,6 @@ timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
 start_time = time.mktime(time.localtime())
 retransmit_count = 0
 
-print('Transmission Started')
-
 while True:
     # get the current time of the script in seconds wrt the localtime
     current_time = time.mktime(time.localtime())
