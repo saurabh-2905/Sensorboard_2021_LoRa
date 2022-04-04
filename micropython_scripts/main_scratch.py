@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Malavika Unnikrishnan, Florian Stechmann, Saurabh Band
-# date: 29.03.2022
+# date: 04.04.2022
 # function: code for esp32 board with lora module
 # trial and error to solve the existing problems: the error in received data
 # randomly, missynchronization of boards due to static intervela of msgs
@@ -232,7 +232,9 @@ que = []
 cb_30_done = False
 cb_retrans_done = False
 cb_hb_done = False
-am_timer_done = False
+
+# init indicator for am reaediness
+am_available = False
 
 # init msg intervals
 msg_interval = 30000  # 30 sec
@@ -266,7 +268,6 @@ try:
 except Exception:
     CONNECTION_CO2 = 0
     write_to_log('co2 failed', str(time.mktime(time.localtime())))
-    # print('Connection SCD30 failed')
 
 try:
     MCP_CO = MCP3221(I2CBUS, CO_ADRR)
@@ -330,8 +331,7 @@ FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp,
 # Create Timers
 timer0 = Timer(0)
 timer1 = Timer(1)
-timer_am = Timer(2)
-timer_hb = Timer(3)
+timer_hb = Timer(2)
 
 # Set callback for LoRa (recv as IR)
 lora.on_recv(cb_lora)
@@ -345,10 +345,8 @@ msg = ""  # msg init
 # initialize timers
 # Timer for sending msgs with measurement values + timestamp + crc
 timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
-# Timer for am, which need 2s. Maybe add 0.1s for security
-timer_am.init(period=2000, mode=Timer.PERIODIC, callback=cb_am)
 # Timer for sending the heartbeat signal
-timer_hb.init(period=2500, mode=Timer.PERIODIC, callback=cb_hb)
+# timer_hb.init(period=2500, mode=Timer.PERIODIC, callback=cb_hb)
 
 # get the start time of the script in seconds wrt the localtime
 start_time = time.mktime(time.localtime())
@@ -385,16 +383,18 @@ while True:
                 SENSOR_DATA[i+2] = round(var, 2)
             else:
                 # AM2301 readings(involves 2 values)
-                if am_timer_done:
+                if am_available:
                     am_temp, am_hum = func_call()
                     if not (THRESHOLD_LIMITS[4][0] <= am_temp <= THRESHOLD_LIMITS[4][1]):
                         LIMITS_BROKEN = 1
                     if not (THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]):
                         LIMITS_BROKEN = 1
+                    am_available = False
                 else:
                     # 200 indicating, sensor is not ready
                     am_temp = 200
                     am_hum = 200
+                    am_available = True
                 SENSOR_DATA[j] = am_temp
                 SENSOR_DATA[j+1] = am_hum
                 j += 2
@@ -402,7 +402,7 @@ while True:
                 CONNECTION_VAR[i] = 1
         except Exception as e:
             CONNECTION_VAR[i] = 0
-            write_to_log(' failed {}: {}'.format(SENSORS_LIST[i], e),
+            write_to_log('failed {}: {}'.format(SENSORS_LIST[i], e),
                          str(current_time))
 
         if not CONNECTION_VAR[i]:
