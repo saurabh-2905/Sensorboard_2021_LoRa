@@ -1,0 +1,19 @@
+3982231425,94420780,2750291925,3903892222
+### last edited: 04.04.2022
+###
+### Usage:
+### Write all relevant board ids in the first line,
+### separated by ',' without any blanks in between, but no
+### more than four board ids!
+### The given order of the board ids will be the order of the board ids.
+### E.g. for the four board ids: 3982231425,94420780,2750291925,3903892222
+### the board with the id 3982231425 will be board number 1 and so on.
+###
+### Current valid board ids:
+### board1 = 3982231425
+### board2 = 94420780
+### board3 = 2750291925
+### board4 = 3903892222
+### board0a = 2628075089 (faulty board !)
+### board0b = 2864645979 (faulty board !)
+### board3x = 301920073  (faulty board !)

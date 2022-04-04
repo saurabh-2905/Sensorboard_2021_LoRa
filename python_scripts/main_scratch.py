@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika Unnikrishnan, Saurabh Band
-# date: 29.03.2022
+# date: 04.04.2022
 # function: Implentation of a LoRa receiving LoPy, which after receiving checks
 #           if any of the received data is not valid. If any data is not valid
 #           it wont be send via MQTT, otherwise it will.
@@ -16,6 +16,18 @@ import time
 import struct
 import numpy as np
 import pickle
+
+
+def read_config(path="config"):
+    """
+    Reads the config file, to get the relevant board ids.
+    """
+    with open("config", "r") as f:
+        config = f.read()
+    config = config.split('\n')[0].split(',')
+    for i in range(len(config)):
+        config[i] = int(config[i])
+    return config
 
 
 def write_to_log(msg):
@@ -241,14 +253,7 @@ sensorboard_list = dict()
 cb_timer_done = False
 
 # board_ids based on the manuall numbering of the boards (to map to old ids)
-board_ids = [3982231425, 94420780, 2750291925, 3903892222]   ### based on the manuall numbering of the boards (to map to old ids)
-### board1 = 3982231425
-### board2 = 94420780
-### board3 = 2750291925
-### board4 = 3903892222
-### board0a = 2628075089 (faulty board !)
-### board0b = 2864645979 (faulty board !)
-### board3x = 301920073  (faulty board !)
+board_ids = read_config()
 
 # Maximum of heartbeats that are allowed to be missed.
 MAX_COUNT = 3
