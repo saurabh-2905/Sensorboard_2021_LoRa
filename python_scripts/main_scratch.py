@@ -241,7 +241,14 @@ sensorboard_list = dict()
 cb_timer_done = False
 
 # board_ids based on the manuall numbering of the boards (to map to old ids)
-board_ids = [3982231425, 94420780, 301920073]
+board_ids = [3982231425, 94420780, 2750291925, 3903892222]   ### based on the manuall numbering of the boards (to map to old ids)
+### board1 = 3982231425
+### board2 = 94420780
+### board3 = 2750291925
+### board4 = 3903892222
+### board0a = 2628075089 (faulty board !)
+### board0b = 2864645979 (faulty board !)
+### board3x = 301920073  (faulty board !)
 
 # Maximum of heartbeats that are allowed to be missed.
 MAX_COUNT = 3
@@ -273,7 +280,7 @@ while True:
             print('Invalid CRC32 in msg')
             receiver_timestamp = time.localtime()
             rx_datetime = create_timestamp(receiver_timestamp)
-            write_to_log_time('Invalid CRC32 in msg: ', str(rx_datetime))
+            write_to_log_time('Invalid CRC32 in msg: ', str(timestamp[0]), str(rx_datetime))
         else:
             # exclude timstamp and crc (8 bytes) to get msg
             values = struct.unpack(_pkng_frmt, recv_msg[:-8])
