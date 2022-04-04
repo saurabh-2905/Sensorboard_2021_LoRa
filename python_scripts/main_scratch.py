@@ -305,20 +305,20 @@ while True:
             send_mqtt(value_list)
             print("Sent to MQTT")
     else:
-        if not struct.unpakc(">L", recv_msg[-4:])[0] == crc32(0, recv_msg[:-4], 4):
-            print('Invalid CRC32 in heartbeat')
-            receiver_timestamp = time.localtime()
-            rx_datetime = create_timestamp(receiver_timestamp)
-            write_to_log_time('Invalid CRC32 in heartbeat: ', str(rx_datetime))
-        else:
-            hb_msg = struct.unpack(">L", recv_msg[:-4])[0]
-            if hb_msg not in list(sensorboard_list.keys()):
-                sensorboard_list[hb_msg] = 1
-            else:
-                sensorboard_list[hb_msg] += 1
-            print('Heartbeat:', len(recv_msg))
-            write_to_log_time('Heartbeat: {}'.format(len(recv_msg)),
-                              str(timestamp[0]), str(rx_datetime))
+        #if not struct.unpakc(">L", recv_msg[-4:])[0] == crc32(0, recv_msg[:-4], 4):
+        #    print('Invalid CRC32 in heartbeat')
+        #    receiver_timestamp = time.localtime()
+        #    rx_datetime = create_timestamp(receiver_timestamp)
+        #    write_to_log_time('Invalid CRC32 in heartbeat: ', str(rx_datetime))
+        #else:
+        #    hb_msg = struct.unpack(">L", recv_msg[:-4])[0]
+        #    if hb_msg not in list(sensorboard_list.keys()):
+        #        sensorboard_list[hb_msg] = 1
+        #    else:
+        #        sensorboard_list[hb_msg] += 1
+        #    print('Heartbeat:', len(recv_msg))
+        write_to_log_time('Heartbeat: {}'.format(len(recv_msg)),
+                          str(timestamp[0]), str(rx_datetime))
 
     # checks if any boards are not working
     if cb_timer_done:
