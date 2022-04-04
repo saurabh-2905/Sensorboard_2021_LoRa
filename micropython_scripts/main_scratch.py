@@ -98,23 +98,6 @@ def cb_retrans(p):
     cb_retrans_done = True
 
 
-def cb_am(p):
-    """
-    Callback for no spikes in the ams.
-    """
-    global am_timer_done
-    am_timer_done = True
-
-
-def cb_hb(p):
-    """
-    Callback for heartbeat, sets boolean indicating
-    that the hearbeat is to be send.
-    """
-    global cb_hb_done
-    cb_hb_done = True
-
-
 def cb_lora(p):
     """
     Callbackfunction for LoRa functionality.
@@ -151,7 +134,7 @@ def write_to_log(msg, timestamp):
     """
     Write a given Message to the file log.txt.
     """
-    with open("log.txt", "a") as f:
+    with open("log", "a") as f:
         f.write(msg + "\t" + timestamp + "\n")
 
 
@@ -231,10 +214,13 @@ que = []
 # init cb booleans
 cb_30_done = False
 cb_retrans_done = False
-cb_hb_done = False
 
 # init indicator for am reaediness
-am_available = False
+am_available1 = False
+am_available2 = False
+am_available3 = False
+am_available4 = False
+am_availability = [am_available1, am_available2, am_available3, am_available4]
 
 # init msg intervals
 msg_interval = 30000  # 30 sec
@@ -242,7 +228,6 @@ retx_interval = 5000  # 5 sec
 
 # init heartbeat msg
 hb_msg = ustruct.pack(">L", SENSORBOARD_ID)
-hb_msg += ustruct.pack(">L", crc32(0, hb_msg, 4))  # 4 correct?
 
 # ------------------------ establish connections ------------------------------
 # establish I2c Bus
@@ -331,7 +316,6 @@ FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp,
 # Create Timers
 timer0 = Timer(0)
 timer1 = Timer(1)
-timer_hb = Timer(2)
 
 # Set callback for LoRa (recv as IR)
 lora.on_recv(cb_lora)
@@ -345,13 +329,12 @@ msg = ""  # msg init
 # initialize timers
 # Timer for sending msgs with measurement values + timestamp + crc
 timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
-# Timer for sending the heartbeat signal
-# timer_hb.init(period=2500, mode=Timer.PERIODIC, callback=cb_hb)
 
 # get the start time of the script in seconds wrt the localtime
 start_time = time.mktime(time.localtime())
 retransmit_count = 0
 
+counter_i = 1
 while True:
     # get the current time of the script in seconds wrt the localtime
     current_time = time.mktime(time.localtime())
@@ -381,18 +364,18 @@ while True:
                 SENSOR_DATA[i+2] = round(var, 2)
             else:
                 # AM2301 readings(involves 2 values)
-                if am_available:
+                if am_availability[i-4]:
                     am_temp, am_hum = func_call()
                     if not (THRESHOLD_LIMITS[4][0] <= am_temp <= THRESHOLD_LIMITS[4][1]):
                         LIMITS_BROKEN = 1
                     if not (THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]):
                         LIMITS_BROKEN = 1
-                    am_available = False
+                    am_availability[i-4] = False
                 else:
                     # 200 indicating, sensor is not ready
                     am_temp = 200
                     am_hum = 200
-                    am_available = True
+                    am_availability[i-4] = True
                 SENSOR_DATA[j] = am_temp
                 SENSOR_DATA[j+1] = am_hum
                 j += 2
@@ -412,55 +395,101 @@ while True:
             else:
                 SENSOR_STATUS += 2**(i)
     # prepare the packted to be sent
-    msg = ustruct.pack(_pkng_frmt, SENSOR_DATA[0], SENSOR_DATA[3],
-                       SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
-                       SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
-                       SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
-                       SENSOR_DATA[13], SENSOR_STATUS,
-                       LIMITS_BROKEN, 0, SENSORBOARD_ID)  # current Sensorreadings
-    msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
-    msg += ustruct.pack(">L", crc32(0, msg, 60))  # add 32-bit crc to the msg, 60 => 62?
+    # check ams
+    if CONNECTION_VAR[4] and CONNECTION_VAR[5] and CONNECTION_VAR[6] and CONNECTION_VAR[7]:#check if am not working
+        if counter_i:
+            counter_i -= 1
+        else:
+            msg = ustruct.pack(_pkng_frmt, SENSOR_DATA[0], SENSOR_DATA[3],
+                               SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
+                               SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
+                               SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
+                               SENSOR_DATA[13], SENSOR_STATUS,
+                               LIMITS_BROKEN, 0, SENSORBOARD_ID)  # current Sensorreadings
+            msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
+            msg += ustruct.pack(">L", crc32(0, msg, 62))  # add 32-bit crc to the msg, 60 => 62?
 
-    if LIMITS_BROKEN:
-        add_to_que(msg, current_time)
-        lora.send(msg)  # Sends imidiately if threshold limits are broken.
-        lora.recv()
-    elif cb_hb_done and not cb_30_done:
-        cb_hb_done = False
-        lora.send(hb_msg)
-        lora.recv()
-        # if heartbeats collide, add randomization as seen below
-    elif cb_30_done:  # send the messages every 30 seconds
-        try:
+            if LIMITS_BROKEN:
+                add_to_que(msg, current_time)
+                lora.send(msg)  # Sends imidiately if threshold limits are broken.
+                lora.recv()
+            elif cb_30_done:  # send the messages every 30 seconds
+                try:
+                    add_to_que(msg, current_time)
+                    lora.send(que[0][0])
+                    # print the latest message(end of que) form tuple (msg, timestamp)
+                    lora.recv()
+                except Exception as e:
+                    write_to_log('callback 30: {}'.format(e), str(current_time))
+
+                start_time = current_time
+                timer1.init(period=retx_interval, mode=Timer.PERIODIC, callback=cb_retrans)
+                timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
+
+                # randomize the msg interval to avoid continous collision of packets
+                if random.random() >= 0.4:
+                    # select time randomly with steps of 1000ms, because the max on
+                    # air time is 123ms and 390ms for SF7 and SF9 resp.
+                    msg_interval = random.randrange(20000, 40000, 1000)
+                    # select random time interval with step size of 1 sec
+                    retx_interval = random.randrange(2000, 10000, 1000)
+
+                # reset timer booleans
+                cb_30_done = False
+            elif cb_retrans_done:  # retransmit every 5 seconds for piled up packets with no ack
+                cb_retrans_done = False
+                retransmit_count += 1
+                if que != []:
+                    lora.send(que[0][0])
+                    lora.recv()
+                if retransmit_count >= 2:
+                    timer1.deinit()
+                    retransmit_count = 0
+
+            counter_i = 1
+    else:
+        msg = ustruct.pack(_pkng_frmt, SENSOR_DATA[0], SENSOR_DATA[3],
+                           SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
+                           SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
+                           SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
+                           SENSOR_DATA[13], SENSOR_STATUS,
+                           LIMITS_BROKEN, 0, SENSORBOARD_ID)  # current Sensorreadings
+        msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
+        msg += ustruct.pack(">L", crc32(0, msg, 62))  # add 32-bit crc to the msg, 60 => 62?
+
+        if LIMITS_BROKEN:
             add_to_que(msg, current_time)
-            lora.send(que[0][0])
-            # print the latest message(end of que) form tuple (msg, timestamp)
+            lora.send(msg)  # Sends imidiately if threshold limits are broken.
             lora.recv()
-        except Exception as e:
-            write_to_log('callback 30: {}'.format(e), str(current_time))
+        elif cb_30_done:  # send the messages every 30 seconds
+            try:
+                add_to_que(msg, current_time)
+                lora.send(que[0][0])
+                # print the latest message(end of que) form tuple (msg, timestamp)
+                lora.recv()
+            except Exception as e:
+                write_to_log('callback 30: {}'.format(e), str(current_time))
 
-        start_time = current_time
-        timer1.init(period=retx_interval, mode=Timer.PERIODIC, callback=cb_retrans)
-        timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
+            start_time = current_time
+            timer1.init(period=retx_interval, mode=Timer.PERIODIC, callback=cb_retrans)
+            timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
 
-        # randomize the msg interval to avoid continous collision of packets
-        if random.random() >= 0.4:
-            # select time randomly with steps of 1000ms, because the max on
-            # air time is 123ms and 390ms for SF7 and SF9 resp.
-            msg_interval = random.randrange(20000, 40000, 1000)
-            # select random time interval with step size of 1 sec
-            retx_interval = random.randrange(2000, 10000, 1000)
+            # randomize the msg interval to avoid continous collision of packets
+            if random.random() >= 0.4:
+                # select time randomly with steps of 1000ms, because the max on
+                # air time is 123ms and 390ms for SF7 and SF9 resp.
+                msg_interval = random.randrange(20000, 40000, 1000)
+                # select random time interval with step size of 1 sec
+                retx_interval = random.randrange(2000, 10000, 1000)
 
-        # reset timer booleans
-        cb_30_done = False
-        if cb_hb_done:
-            cb_hb_done = False
-    elif cb_retrans_done:  # retransmit every 5 seconds for piled up packets with no ack
-        cb_retrans_done = False
-        retransmit_count += 1
-        if que != []:
-            lora.send(que[0][0])
-            lora.recv()
-        if retransmit_count >= 2:
-            timer1.deinit()
-            retransmit_count = 0
+            # reset timer booleans
+            cb_30_done = False
+        elif cb_retrans_done:  # retransmit every 5 seconds for piled up packets with no ack
+            cb_retrans_done = False
+            retransmit_count += 1
+            if que != []:
+                lora.send(que[0][0])
+                lora.recv()
+            if retransmit_count >= 2:
+                timer1.deinit()
+                retransmit_count = 0
