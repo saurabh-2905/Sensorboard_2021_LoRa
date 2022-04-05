@@ -226,9 +226,6 @@ am_availability = [am_available1, am_available2, am_available3, am_available4]
 msg_interval = 30000  # 30 sec
 retx_interval = 5000  # 5 sec
 
-# init heartbeat msg
-hb_msg = ustruct.pack(">L", SENSORBOARD_ID)
-
 # ------------------------ establish connections ------------------------------
 # establish I2c Bus
 try:
