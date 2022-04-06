@@ -1,11 +1,4 @@
-# -------------------------------------------------------------------------------
-# author: Malavika Unnikrishnan, Florian Stechmann, Saurabh Band
-# date: 06.04.2022
-# function: code for esp32 board with lora module
-# trial and error to solve the existing problems: the error in received data
-# randomly, missynchronization of boards due to static intervela of msgs
-# and heartbeat signals.
-# -------------------------------------------------------------------------------
+## test for ams
 
 from machine import Pin, I2C, SoftSPI, Timer
 import machine
@@ -81,22 +74,33 @@ def measure_am4():
     return AM2301_4.read_measurement()
 
 
+def cb_30(p):
+    """
+    Callback for the sending of msgs every btw 20s-40s.
+    """
+    global cb_30_done
+    cb_30_done = True
+
+
+def cb_retrans(p):
+    """
+    Callback for resending msgs.
+    """
+    global cb_retrans_done
+    cb_retrans_done = True
+
+
 def cb_lora(p):
     """
     Callbackfunction for LoRa functionality.
-    Removes a value from the queue, if an ack is received.
     """
-    global que
     try:
-        rcv_msg = p.decode()
-        board_id, timestamp = rcv_msg.split(',')
-        if int(board_id) == SENSORBOARD_ID:
-            for each_pkt in que:
-                if each_pkt[1] == int(timestamp):
-                    que.remove(each_pkt)
+        msg = p.decode()
+        print("Received: " + msg)
     except Exception as e:
-        write_to_log('callback lora: {}'.format(e),
-                     str(time.mktime(time.localtime())))
+        print("Exception occrued: " + str(e))
+    global ack
+    ack = True
 
 
 def crc32(crc, p, len):
@@ -160,8 +164,6 @@ def get_node_id(hex=False):
 # Allcoate emergeny buffer for interrupt signals
 micropython.alloc_emergency_exception_buf(100)
 
-# packing format
-_pkng_frmt = '>12f3HI'
 SENSORBOARD_ID = get_node_id()
 
 # ------------------------ constants and variables ----------------------------
@@ -198,9 +200,18 @@ que = []
 cb_30_done = False
 cb_retrans_done = False
 
+# init indicator for am reaediness
+am_available1 = False
+am_available2 = False
+am_available3 = False
+am_available4 = False
+am_availability = [am_available1, am_available2, am_available3, am_available4]
+
 # init msg intervals
 msg_interval = 30000  # 30 sec
 retx_interval = 5000  # 5 sec
+
+ack = True
 
 # ------------------------ establish connections ------------------------------
 # establish I2c Bus
@@ -286,86 +297,55 @@ SENSORS_LIST = ['CO2', 'CO', 'O2', 'BMP', 'AM1', 'AM2', 'AM3', 'AM4']
 FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp,
             measure_am1, measure_am2, measure_am3, measure_am4)
 
+# Create Timers
+# timer0 = Timer(0)
+# timer1 = Timer(1)
+
 # Set callback for LoRa (recv as IR)
 lora.on_recv(cb_lora)
-
-# sensor readings list init
-SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 # ------------------------ infinite loop execution ----------------------------
 msg = ""  # msg init
 
-# get the start time of the script in seconds wrt the localtime
-start_time = time.mktime(time.localtime())
-retransmit_count = 0
+_pkg_frmt = ">8f"
+
 print("starting loop ...")
 while True:
-    # get the current time of the script in seconds wrt the localtime
-    current_time = time.mktime(time.localtime())
-    SENSOR_STATUS = 0
-    LIMITS_BROKEN = 0
-    j = 6
     print("taking measurements ...")
-    for i in range(len(CONNECTION_VAR)):
-        # Sensor Data is available & sensor is working
-        func_call = FUNC_VAR[i]
+    try:
         try:
-            if i == 0:
-                # SCD30 sensor readings (involves three values)
-                reading_co2 = func_call()
-                if not reading_co2[0] == -1:
-                    scd_co2, scd_temp, scd_hum = reading_co2
-                    if not (THRESHOLD_LIMITS[i][0] <= scd_co2 <= THRESHOLD_LIMITS[i][1]):
-                        LIMITS_BROKEN = 1
-                SENSOR_DATA[0] = round(scd_co2, 2)
-                SENSOR_DATA[1] = round(scd_temp, 2)
-                SENSOR_DATA[2] = round(scd_hum, 2)
-            elif 1 <= i <= 3:
-                # MCP3221, BMP180 sensor reading
-                var = func_call()
-                if not (THRESHOLD_LIMITS[i][0] <= var <= THRESHOLD_LIMITS[i][1]):
-                    LIMITS_BROKEN = 1
-                SENSOR_DATA[i+2] = round(var, 2)
-            else:
-                # AM2301 readings(involves 2 values)
-                try:
-                    am_temp, am_hum = func_call()
-                    if not (THRESHOLD_LIMITS[4][0] <= am_temp <= THRESHOLD_LIMITS[4][1]):
-                        LIMITS_BROKEN = 1
-                    if not (THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]):
-                        LIMITS_BROKEN = 1
-                    SENSOR_DATA[j] = am_temp
-                    SENSOR_DATA[j+1] = am_hum
-                    j += 2
-                except Exception:
-                    am_temp = 200
-                    am_hum = 200
-            if CONNECTION_VAR[i] == 0:
-                CONNECTION_VAR[i] = 1
-        except Exception as e:
-            CONNECTION_VAR[i] = 0
-            write_to_log('failed {}: {}'.format(SENSORS_LIST[i], e),
-                         str(current_time))
+            am1_temp, am1_hum = measure_am1()
+        except Exception:
+            am1_temp = 200
+            am1_hum = 200
 
-        if not CONNECTION_VAR[i]:
-            # Sensor failed
-            if i == 0:
-                SENSOR_STATUS = 2**(i)
-            elif 1 <= i <= 3:
-                SENSOR_STATUS += 2**(i)
-            else:
-                SENSOR_STATUS += 2**(i)
-    # prepare the packted to be sent
-    msg = ustruct.pack(_pkng_frmt, SENSOR_DATA[0], SENSOR_DATA[3],
-                       SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
-                       SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
-                       SENSOR_DATA[10], SENSOR_DATA[11], SENSOR_DATA[12],
-                       SENSOR_DATA[13], SENSOR_STATUS,
-                       LIMITS_BROKEN, 0, SENSORBOARD_ID)  # current Sensorreadings
-    msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
-    msg += ustruct.pack(">L", crc32(0, msg, 62))  # add 32-bit crc to the msg
+        try:
+            am2_temp, am2_hum = measure_am2()
+        except Exception:
+            am2_temp = 200
+            am2_hum = 200
 
-    add_to_que(msg, current_time)
-    lora.send(msg)  # Sends imidiately if threshold limits are broken.
-    lora.recv()
-    print("msg sent")
+        try:
+            am3_temp, am3_hum = measure_am3()
+        except Exception:
+            am3_temp = 200
+            am3_hum = 200
+
+        try:
+            am4_temp, am4_hum = measure_am4()
+        except Exception:
+            am4_temp = 200
+            am4_hum = 200
+
+        print("took measurements, packing msg")
+        msg = ustruct.pack(_pkg_frmt, am1_temp, am1_hum,
+                           am2_temp, am2_hum,
+                           am3_temp, am3_hum,
+                           am4_temp, am4_hum)
+        msg += ustruct.pack(">L", crc32(0, msg, 32))
+        ack = False
+        lora.send(msg)
+        lora.recv()
+        print("msg sent")
+    except Exception as e:
+        print("Exception occured: " + str(e))
