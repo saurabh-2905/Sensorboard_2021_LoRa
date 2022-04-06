@@ -78,11 +78,11 @@ for i in range(len(timestamps)):
     new_timestamps.append(str(i+1))
 
 for i in range(4):
-    axs[0].plot(new_timestamps, temps[i], "o-", label="AM{}".format(str(i+1)))
+    axs[0].plot(new_timestamps, temps[i], "+-", label="AM{}".format(str(i+1)))
     axs[0].set_title("Temperature measurements")
     axs[0].get_xaxis().set_visible(False)
     axs[0].legend(loc="upper right")
-    axs[1].plot(new_timestamps, hums[i], "o-", label="AM{}".format(str(i+1)))
+    axs[1].plot(new_timestamps, hums[i], "+-", label="AM{}".format(str(i+1)))
     axs[1].set_title("Humidity measurements")
     axs[1].get_xaxis().set_visible(False)
     axs[1].legend(loc="upper right")
