@@ -295,7 +295,7 @@ except Exception:
 
 
 # Thresshold limits
-THRESHOLD_LIMITS = ((0.0, 1000.0), (0.0, 20.0), (18, 23.0), (950.0, 1040.0),
+THRESHOLD_LIMITS = ((0.0, 3000.0), (0.0, 20.0), (18, 23.0), (950.0, 1040.0),
                     (18.0, 30.0, 0.0, 100.0))
 
 # connectionvaribles for each sensor
@@ -331,14 +331,14 @@ timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
 start_time = time.mktime(time.localtime())
 retransmit_count = 0
 
-counter_i = 1
+print("starting infinte loop")
 while True:
     # get the current time of the script in seconds wrt the localtime
     current_time = time.mktime(time.localtime())
     SENSOR_STATUS = 0
     LIMITS_BROKEN = 0
     j = 6
-
+    print("taking measurements ...")
     for i in range(len(CONNECTION_VAR)):
         # Sensor Data is available & sensor is working
         func_call = FUNC_VAR[i]
@@ -367,12 +367,12 @@ while True:
                         LIMITS_BROKEN = 1
                     if not (THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]):
                         LIMITS_BROKEN = 1
-                    j += 2
                 except Exception:
                     am_temp = 200
                     am_hum = 200
                 SENSOR_DATA[j] = am_temp
                 SENSOR_DATA[j+1] = am_hum
+                j += 2
             if CONNECTION_VAR[i] == 0:
                 CONNECTION_VAR[i] = 1
         except Exception as e:
@@ -389,6 +389,7 @@ while True:
             else:
                 SENSOR_STATUS += 2**(i)
     # prepare the packted to be sent
+    print("packing data")
     msg = ustruct.pack(_pkng_frmt, SENSOR_DATA[0], SENSOR_DATA[3],
                        SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
                        SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
@@ -402,6 +403,7 @@ while True:
         add_to_que(msg, current_time)
         lora.send(msg)  # Sends imidiately if threshold limits are broken.
         lora.recv()
+        print("limits broken")
     elif cb_30_done:  # send the messages every 30 seconds
         try:
             add_to_que(msg, current_time)
@@ -425,12 +427,14 @@ while True:
 
         # reset timer booleans
         cb_30_done = False
+        print("msg sent")
     elif cb_retrans_done:  # retransmit every 5 seconds for piled up packets with no ack
         cb_retrans_done = False
         retransmit_count += 1
         if que != []:
             lora.send(que[0][0])
             lora.recv()
+            print("msg resent")
         if retransmit_count >= 2:
             timer1.deinit()
             retransmit_count = 0
