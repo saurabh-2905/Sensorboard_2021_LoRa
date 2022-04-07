@@ -64,25 +64,47 @@ for i in range(len(data)):
             n = int((k-1)/2)
         hums[n].append(data[i][j])
 
+# --------- compare timestamps ------------------------------------------------
+new_timestamps = []
+for i in range(len(timestamps)):
+    new_timestamps.append(timestamps[i].split(" ")[2])
+
+min_counter = 0
+hour_counter = 0
+
+for i in range(len(new_timestamps)-1):
+    curr_time = (int(new_timestamps[i][0:2]),
+                 int(new_timestamps[i][3:5]))
+    comp_time = (int(new_timestamps[i+1][0:2]),
+                 int(new_timestamps[i+1][3:5]))
+    hour_diff = comp_time[0] - curr_time[0]
+    min_diff = comp_time[1] - curr_time[1]
+    if hour_diff > 1:
+        hour_counter += 1
+    if min_counter > 3:
+        min_counter += 1
+
 # --------- plot data ---------------------------------------------------------
 print("Plotting data ...")
 # create subplots
 fig, axs = plt.subplots(2)
-title = "Temperature and Humidity measurements from {start}, to {end}\nNumber of invalid CRCs: {crcs}"
+title = "Temperature and Humidity measurements from {start}, to {end}\nNumber of invalid CRCs: {crcs}\nHour counter: {hrs}, Minuter counter: {mins}"
 fig.suptitle(title.format(start=timestamps[0],
                           end=timestamps[len(timestamps)-1],
-                          crcs=invalid_crcs))
+                          crcs=invalid_crcs,
+                          hrs=hour_counter,
+                          mins=min_counter))
 
-new_timestamps = []
+y = []
 for i in range(len(timestamps)):
-    new_timestamps.append(str(i+1))
+    y.append(str(i+1))
 
 for i in range(4):
-    axs[0].plot(new_timestamps, temps[i], "+-", label="AM{}".format(str(i+1)))
+    axs[0].plot(y, temps[i], "+-", label="AM{}".format(str(i+1)))
     axs[0].set_title("Temperature measurements")
     axs[0].get_xaxis().set_visible(False)
     axs[0].legend(loc="upper right")
-    axs[1].plot(new_timestamps, hums[i], "+-", label="AM{}".format(str(i+1)))
+    axs[1].plot(y, hums[i], "+-", label="AM{}".format(str(i+1)))
     axs[1].set_title("Humidity measurements")
     axs[1].get_xaxis().set_visible(False)
     axs[1].legend(loc="upper right")
