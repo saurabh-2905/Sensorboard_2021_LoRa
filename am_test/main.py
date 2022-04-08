@@ -329,7 +329,7 @@ while True:
     if cb_lora_recv:
         cb_lora_recv = False
         try:
-            rcv_msg = msg.decode()
+            rcv_msg = rcv_msg.decode()
             board_id, timestamp = rcv_msg.split(',')
             if int(board_id) == SENSORBOARD_ID:
                 for each_pkt in que:
