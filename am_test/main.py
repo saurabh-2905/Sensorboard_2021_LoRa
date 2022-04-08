@@ -98,19 +98,12 @@ def cb_retrans(p):
     cb_retrans_done = True
 
 
-def cb_scheduled(msg):
-    global que
-    try:
-        rcv_msg = msg.decode()
-        board_id, timestamp = rcv_msg.split(',')
-        if int(board_id) == SENSORBOARD_ID:
-            for each_pkt in que:
-                if each_pkt[1] == int(timestamp):
-                    que.remove(each_pkt)
-    except Exception:
-        pass
-        # write_to_log('callback lora: {}'.format(e),
-        # str(time.mktime(time.localtime())))
+def lora_scheduled(r_msg):
+    """
+    """
+    global cb_lora_recv, rcv_msg
+    cb_lora_recv = True
+    rcv_msg = r_msg
 
 
 def cb_lora(p):
@@ -118,7 +111,7 @@ def cb_lora(p):
     Callbackfunction for LoRa functionality.
     Removes a value from the queue, if an ack is received.
     """
-    micropython.schedule(cb_scheduled, p)
+    micropython.schedule(lora_scheduled, p)
 
 
 def crc32(crc, p, len):
@@ -219,13 +212,7 @@ que = []
 # init cb booleans
 cb_30_done = False
 cb_retrans_done = False
-
-# init indicator for am reaediness
-am_available1 = False
-am_available2 = False
-am_available3 = False
-am_available4 = False
-am_availability = [am_available1, am_available2, am_available3, am_available4]
+cb_lora_recv = False
 
 # init msg intervals
 msg_interval = 30000  # 30 sec
@@ -327,6 +314,7 @@ SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 # ------------------------ infinite loop execution ----------------------------
 msg = ""  # msg init
+rcv_msg = ""  # rcv_msg init
 
 # initialize timers
 # Timer for sending msgs with measurement values + timestamp + crc
@@ -338,10 +326,26 @@ retransmit_count = 0
 
 while True:
     # get the current time of the script in seconds wrt the localtime
+    if cb_lora_recv:
+        cb_lora_recv = False
+        try:
+            rcv_msg = msg.decode()
+            board_id, timestamp = rcv_msg.split(',')
+            if int(board_id) == SENSORBOARD_ID:
+                for each_pkt in que:
+                    if each_pkt[1] == int(timestamp):
+                        que.remove(each_pkt)
+        except Exception:
+            pass
+            # write_to_log('callback lora: {}'.format(e),
+            # str(time.mktime(time.localtime())))
+
+    # get the current time of the script in seconds wrt the localtime
     current_time = time.mktime(time.localtime())
     SENSOR_STATUS = 0
     LIMITS_BROKEN = 0
     j = 6
+
     for i in range(len(CONNECTION_VAR)):
         # Sensor Data is available & sensor is working
         func_call = FUNC_VAR[i]
