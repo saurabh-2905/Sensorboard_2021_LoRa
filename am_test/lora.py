@@ -1,5 +1,6 @@
 import gc
 from machine import Pin
+import micropython
 
 TX_BASE_ADDR = 0x00
 RX_BASE_ADDR = 0x00
@@ -208,6 +209,9 @@ class LoRa:
         self._write(REG_OP_MODE, MODE_LORA | MODE_RX_CONTINUOUS)
 
     def _irq_recv(self, event_source):
+        micropython.schedule(self._irq_scheduled, event_source)
+
+    def _irq_scheduled(self, evt_src):
         f = self._get_irq_flags()
         if f & IRQ_PAYLOAD_CRC_ERROR_MASK == 0:
             if self._on_recv:
