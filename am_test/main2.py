@@ -58,6 +58,7 @@ def measure_am1(dummy):
     """
     Temp & humidity sensor 1 reading.
     """
+    global am_temp, am_hum
     am_temp, am_hum = AM2301_1.read_measurement()
 
 
@@ -65,6 +66,7 @@ def measure_am2(dummy):
     """
     Temp & humidity sensor 2 reading.
     """
+    global am_temp, am_hum
     am_temp, am_hum = AM2301_2.read_measurement()
 
 
@@ -72,13 +74,15 @@ def measure_am3(dummy):
     """
     Temp & humidity sensor 3 reading.
     """
+    global am_temp, am_hum
     am_temp, am_hum = AM2301_3.read_measurement()
 
 
-def measure_am4():
+def measure_am4(dummy):
     """
     Temp & humidity sensor 4 reading.
     """
+    global am_temp, am_hum
     am_temp, am_hum = AM2301_4.read_measurement()
 
 
