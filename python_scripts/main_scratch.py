@@ -175,7 +175,7 @@ def send_mqtt(values):
             if j < 4:
                 CLIENT.publish(topic=_TOPICS[j].format(id_val=id_val),
                                payload=str(values[j]))
-            elif j > 3 and not values[j] == 200:
+            elif j > 3:
                 CLIENT.publish(topic=_TOPICS[j].format(id_val=id_val),
                                payload=str(values[j]))
     else:
@@ -191,7 +191,7 @@ def send_mqtt(values):
                 i += 1
             else:
                 # if am value equals 200 that indicates a wrong reading
-                if not sensor_connections[id_val_index-1][j] and not values[i] == 200:
+                if not sensor_connections[id_val_index-1][j]:
                     CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val),
                                    payload=str(values[i]))
                     CLIENT.publish(topic=_TOPICS[i+1].format(id_val=id_val),
@@ -245,9 +245,14 @@ _Failed_sensor = "sensor{id_val}_stat_"
 # Topic for broken limits
 _Limits_broken = "board{id_val}/limits"
 
+# Time in seconds, in which the status of the boards is checked.
+timer_length = 60
+
 # Constants depending on the msg structure
 length_failed_sensors = 8
-length_values = 12  # 12 sensor readings+sensor board status+limits broken+heartbeat+sensor id
+# 12 sensor readings+sensor board status+limits broken+heartbeat+sensor id
+length_values = 12
+# dicitionary init for list with sensorboards
 sensorboard_list = dict()
 
 cb_timer_done = False
@@ -317,20 +322,9 @@ while True:
             send_mqtt(value_list)
             print("Sent to MQTT")
     else:
-        #if not struct.unpakc(">L", recv_msg[-4:])[0] == crc32(0, recv_msg[:-4], 4):
-        #    print('Invalid CRC32 in heartbeat')
-        #    receiver_timestamp = time.localtime()
-        #    rx_datetime = create_timestamp(receiver_timestamp)
-        #    write_to_log_time('Invalid CRC32 in heartbeat: ', str(rx_datetime))
-        #else:
-        #    hb_msg = struct.unpack(">L", recv_msg[:-4])[0]
-        #    if hb_msg not in list(sensorboard_list.keys()):
-        #        sensorboard_list[hb_msg] = 1
-        #    else:
-        #        sensorboard_list[hb_msg] += 1
-        #    print('Heartbeat:', len(recv_msg))
-        write_to_log_time('Heartbeat: {}'.format(len(recv_msg)),
-                          str(timestamp[0]), str(rx_datetime))
+        write_to_log_time(
+            'Error in msg length. Received following msg: {}'.format(
+                len(recv_msg)), str(timestamp[0]), str(rx_datetime))
 
     # checks if any boards are not working
     if cb_timer_done:
@@ -352,4 +346,4 @@ while True:
         with open('sensor_values_raspbery.pkl', 'wb') as f:
             pickle.dump(all_values, f)
         cb_timer_done = False
-        threading.Timer(90, cb).start()
+        threading.Timer(timer_length, cb).start()
