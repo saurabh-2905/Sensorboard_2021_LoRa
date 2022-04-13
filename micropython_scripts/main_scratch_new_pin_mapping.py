@@ -1,7 +1,10 @@
 # -------------------------------------------------------------------------------
 # author: Malavika Unnikrishnan, Florian Stechmann, Saurabh Band
-# date: 13.04.2022
-# function: code for esp32 board with lora module.
+# date: 11.04.2022
+# function: code for esp32 board with lora module
+# trial and error to solve the existing problems: the error in received data
+# randomly, missynchronization of boards due to static intervela of msgs
+# and heartbeat signals.
 # -------------------------------------------------------------------------------
 
 from machine import Pin, I2C, SoftSPI, Timer
@@ -225,8 +228,8 @@ CO_ADRR = const(0x49)
 SCD30_ADRR = const(0x61)
 AM2301_1_ADRR = const(0)
 AM2301_2_ADRR = const(4)
-AM2301_3_ADRR = const(17)
-AM2301_4_ADRR = const(16)
+AM2301_3_ADRR = const(13)  # 17 -> 13
+AM2301_4_ADRR = const(15)  # 16 -> 15
 
 # connection_variables init for sensors
 FAILED_LORA = 1
