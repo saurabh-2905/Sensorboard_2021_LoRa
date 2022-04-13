@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Malavika Unnikrishnan, Florian Stechmann, Saurabh Band
-# date: 11.04.2022
+# date: 13.04.2022
 # function: code for esp32 board with lora module
 # trial and error to solve the existing problems: the error in received data
 # randomly, missynchronization of boards due to static intervela of msgs
