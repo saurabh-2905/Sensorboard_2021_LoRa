@@ -113,19 +113,17 @@ def cb_retrans(p):
 
 def lora_scheduled(r_msg):
     """
+    Scheduled lora callback.
     """
     global cb_lora_recv, rcv_msg
     cb_lora_recv = True
     rcv_msg.append(r_msg)
-    print("rcv execution")
 
 
 def cb_lora(p):
     """
-    Callbackfunction for LoRa functionality.
-    Removes a value from the queue, if an ack is received.
+    Schedules lora callback.
     """
-    print("rcv")
     micropython.schedule(lora_scheduled, p)
 
 
@@ -197,7 +195,6 @@ def lora_rcv_exec(a):
             msg = rcv_msg[i]
             try:
                 recv_msg = msg.decode()
-                print(str(recv_msg))
                 board_id, timestamp = recv_msg.split(',')
                 if int(board_id) == SENSORBOARD_ID:
                     for each_pkt in que:
@@ -208,7 +205,6 @@ def lora_rcv_exec(a):
                 # write_to_log('callback lora: {}'.format(e),
                 # str(time.mktime(time.localtime())))
         rcv_msg = []
-        print("rcv_msg proc: " + str(que))
 
 
 # Allcoate emergeny buffer for interrupt signals
@@ -369,7 +365,6 @@ while True:
     SENSOR_STATUS = 0
     LIMITS_BROKEN = 0
     j = 6
-    print("start measuring")
     for i in range(len(CONNECTION_VAR)):
         # Sensor Data is available & sensor is working
         func_call = FUNC_VAR[i]
@@ -417,7 +412,6 @@ while True:
             else:
                 SENSOR_STATUS += 2**(i)
     # prepare the packted to be sent
-    # print("packing data")
     msg = ustruct.pack(_pkng_frmt, SENSOR_DATA[0], SENSOR_DATA[3],
                        SENSOR_DATA[4], SENSOR_DATA[5], SENSOR_DATA[6],
                        SENSOR_DATA[7], SENSOR_DATA[8], SENSOR_DATA[9],
@@ -431,7 +425,6 @@ while True:
         add_to_que(msg, current_time)
         lora.send(msg)  # Sends imidiately if threshold limits are broken.
         lora.recv()
-        print("limits broken")
     elif cb_30_done:  # send the messages every 30 seconds
         try:
             add_to_que(msg, current_time)
@@ -439,7 +432,6 @@ while True:
             lora.recv()
         except Exception as e:
             write_to_log('callback 30: {}'.format(e), str(current_time))
-        print("msg sent")
         start_time = current_time
         timer1.init(period=retx_interval, mode=Timer.PERIODIC, callback=cb_retrans)
         timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
@@ -457,9 +449,7 @@ while True:
     elif cb_retrans_done:  # retransmit every 5 seconds for piled up packets with no ack
         cb_retrans_done = False
         retransmit_count += 1
-        print(str(que))
         if que != []:
-            print("retransmit")
             lora.send(que[0][0])
             lora.recv()
         if retransmit_count >= 2:

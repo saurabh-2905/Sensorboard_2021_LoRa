@@ -204,7 +204,7 @@ def lora_rcv_exec(msg):
                         if each_pkt[1] == int(timestamp):
                             que.remove(each_pkt)
             except Exception as e:
-                pass
+                pass  # to be removed
                 write_to_log("callback lora: {}".format(e),
                              str(time.mktime(time.localtime())))
         rcv_msg = []
