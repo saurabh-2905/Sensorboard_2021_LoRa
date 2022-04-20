@@ -30,16 +30,19 @@ class BMP180():
     MD = 0
 
     # CMD registers
-    CMD_REG = bytearray([0xF4])
-    MSB_REG = bytearray([0xF6])
-    LSB_REG = bytearray([0xF7])
-    XLSB_REG = bytearray([0xF8])
+    CMD_REG = 0xF4
+    MSB_REG = 0xF6
+    LSB_REG = 0xF7
+    XLSB_REG = 0xF8
 
     # Raw temperature value
     UT_raw = 0
 
     # Raw pressure value
     UP_raw = 0
+
+    # Delays for pressure readings
+    DELAYS = (5, 8, 14, 25)
 
     def __init__(self, i2cbus, os=3):
         """
@@ -93,14 +96,15 @@ class BMP180():
         pressure_cmd = 0x34 + (self.oversampling_setting << 6)
         PRES_MEAS_CMD = bytearray([pressure_cmd])
         TEMP_MEAS_CMD = bytearray([0x2E])
+        delay = self.DELAYS[self.oversampling_setting]
         try:
-            self.i2cbus.writeto_mem(self._BMP_ADRESS,
-                                    self.CMD_REG, TEMP_MEAS_CMD, 2)
-            time.sleep_ms(4.5)
+            self.i2cbus.writeto_mem(self._BMP_ADRESS, self.CMD_REG, TEMP_MEAS_CMD)
+            time.sleep_ms(5)
             self.UT_raw = self.i2cbus.readfrom_mem(self._BMP_ADRESS,
                                                    self.MSB_REG, 2)
             self.i2cbus.writeto_mem(self._BMP_ADRESS,
-                                    self.CMD_REG, PRES_MEAS_CMD, 2)
+                                    self.CMD_REG, PRES_MEAS_CMD)
+            time.sleep_ms(delay)
             self.UP_raw = self.i2cbus.readfrom_mem(self._BMP_ADRESS,
                                                    self.MSB_REG, 3)
         except Exception:
@@ -129,14 +133,14 @@ class BMP180():
         except Exception:
             raise
         B6 = B5-4000
-        X1 = (self._B2*(B6**2/2**12))/2**11
-        X2 = self._AC2*B6/2**11
+        X1 = (self.B2*(B6**2/2**12))/2**11
+        X2 = self.AC2*B6/2**11
         X3 = X1+X2
-        B3 = ((int((self._AC1*4+X3)) << self.oversample_setting)+2)/4
-        X1 = self._AC3*B6/2**13
-        X2 = (self._B1*(B6**2/2**12))/2**16
+        B3 = ((int((self.AC1*4+X3)) << self.oversample_setting)+2)/4
+        X1 = self.AC3*B6/2**13
+        X2 = (self.B1*(B6**2/2**12))/2**16
         X3 = ((X1+X2)+2)/2**2
-        B4 = abs(self._AC4)*(X3+32768)/2**15
+        B4 = abs(self.AC4)*(X3+32768)/2**15
         B7 = (abs(UP)-B3) * (50000 >> self.oversample_setting)
         if B7 < 0x80000000:
             pres = (B7*2)/B4

@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Malavika Unnikrishnan, Florian Stechmann, Saurabh Band
-# date: 13.04.2022
+# date: 20.04.2022
 # function: code for esp32 board with lora module.
 # -------------------------------------------------------------------------------
 
@@ -185,8 +185,9 @@ def get_node_id(hex=False):
         return int(node_id, 16)
 
 
-def lora_rcv_exec(a):
+def lora_rcv_exec(p):
     """
+    lora receive msg processing
     """
     global cb_lora_recv, rcv_msg
     if cb_lora_recv:
@@ -388,7 +389,6 @@ while True:
             else:
                 # AM2301 readings(involves 2 values)
                 micropython.schedule(func_call, i)
-                print(am_temp, am_hum)
                 if not (THRESHOLD_LIMITS[4][0] <= am_temp <= THRESHOLD_LIMITS[4][1]):
                     LIMITS_BROKEN = 1
                 if not (THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]):
@@ -420,7 +420,9 @@ while True:
                        LIMITS_BROKEN, 0, SENSORBOARD_ID)  # current Sensorreadings
     msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
     msg += ustruct.pack(">L", crc32(0, msg, 62))  # add 32-bit crc to the msg
-    micropython.schedule(lora_rcv_exec, 0)
+
+    micropython.schedule(lora_rcv_exec, 0)  # process received msgs
+
     if LIMITS_BROKEN:
         add_to_que(msg, current_time)
         lora.send(msg)  # Sends imidiately if threshold limits are broken.

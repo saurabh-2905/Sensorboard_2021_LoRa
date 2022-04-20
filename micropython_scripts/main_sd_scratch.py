@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # authors: Malavika Unnikrishnan, Florian Stechmann, Saurabh Band
-# date: 12.04.2022
+# date: 20.04.2022
 # function: code for esp32 board with lora module
 # -------------------------------------------------------------------------------
 
@@ -187,15 +187,15 @@ def get_node_id(hex=False):
         return int(node_id, 16)
 
 
-def lora_rcv_exec(msg):
+def lora_rcv_exec(p):
     """
-    Executes the process for all received msgs since last call.
+    Processed all received msgs.
     """
     global cb_lora_recv, rcv_msg
     if cb_lora_recv:
         cb_lora_recv = False
-        for i in range(len(msg)):
-            msg = msg[i]
+        for i in range(len(rcv_msg)):
+            msg = rcv_msg[i]
             try:
                 recv_msg = msg.decode()
                 board_id, timestamp = recv_msg.split(',')
@@ -204,19 +204,16 @@ def lora_rcv_exec(msg):
                         if each_pkt[1] == int(timestamp):
                             que.remove(each_pkt)
             except Exception as e:
-                pass  # to be removed
-                write_to_log("callback lora: {}".format(e),
+                write_to_log("Lora msg process: {}".format(e),
                              str(time.mktime(time.localtime())))
         rcv_msg = []
-        write_to_log("Received and received msg processed",
-                     str(time.mktime(time.localtime())))
 
 
 # Allcoate emergeny buffer for interrupt signals
 micropython.alloc_emergency_exception_buf(100)
 
 # packing format
-_pkng_frmt = '>12f3HI'
+_pkng_frmt = ">12f3HI"
 SENSORBOARD_ID = get_node_id()
 
 # ------------------------ constants and variables ----------------------------
@@ -463,7 +460,9 @@ while True:
                        LIMITS_BROKEN, 0, SENSORBOARD_ID)  # current Sensorreadings
     msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
     msg += ustruct.pack(">L", crc32(0, msg, 62))  # add 32-bit crc to the msg
-    micropython.schedule(lora_rcv_exec, rcv_msg)
+
+    micropython.schedule(lora_rcv_exec, 0)  # process received msgs
+
     if LORA_ESTABLISHED:
         if LIMITS_BROKEN:
             add_to_que(msg, current_time)
