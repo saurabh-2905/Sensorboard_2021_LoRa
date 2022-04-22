@@ -1,183 +1,196 @@
-# -------------------------------------------------------------------------------
-# author: Florian Stechmann
-# date: 19.04.2022
-# function: realizes bmp180 from bosch functionality via I2C bus.
-# -------------------------------------------------------------------------------
+'''
+bmp180 is a micropython module for the Bosch BMP180 sensor. It measures
+temperature as well as pressure, with a high enough resolution to calculate
+altitude.
+Breakoutboard: http://www.adafruit.com/products/1603  
+data-sheet: http://ae-bst.resource.bosch.com/media/products/dokumente/
+bmp180/BST-BMP180-DS000-09.pdf
+The MIT License (MIT)
+Copyright (c) 2014 Sebastian Plamauer, oeplse@gmail.com
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+x3The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+'''
 
-from machine import I2C
-
-import ustruct
+from ustruct import unpack as unp
+from machine import I2C, Pin
+import math
 import time
 
-
+# BMP180 class
 class BMP180():
-    """
-    """
+    '''
+    Module for the BMP180 pressure sensor.
+    '''
 
-    _BMP_ADRESS = 119
+    _bmp_addr = 119             # adress of BMP180 is hardcoded on the sensor
 
-    # Calibration registers
-    AC1 = 0
-    AC2 = 0
-    AC3 = 0
-    AC4 = 0
-    AC5 = 0
-    AC6 = 0
-    B1 = 0
-    B2 = 0
-    MB = 0
-    MC = 0
-    MD = 0
+    # init
+    def __init__(self, i2c_bus):
 
-    # CMD registers
-    CMD_REG = 0xF4
-    MSB_REG = 0xF6
-    LSB_REG = 0xF7
-    XLSB_REG = 0xF8
+        # create i2c obect
+        _bmp_addr = self._bmp_addr
+        self._bmp_i2c = i2c_bus
+        #self._bmp_i2c.start()
+        self.chip_id = self._bmp_i2c.readfrom_mem(_bmp_addr, 0xD0, 2)
+        # read calibration data from EEPROM
+        self._AC1 = unp('>h', self._bmp_i2c.readfrom_mem(_bmp_addr, 0xAA, 2))[0]
+        self._AC2 = unp('>h', self._bmp_i2c.readfrom_mem(_bmp_addr, 0xAC, 2))[0]
+        self._AC3 = unp('>h', self._bmp_i2c.readfrom_mem(_bmp_addr, 0xAE, 2))[0]
+        self._AC4 = unp('>H', self._bmp_i2c.readfrom_mem(_bmp_addr, 0xB0, 2))[0]
+        self._AC5 = unp('>H', self._bmp_i2c.readfrom_mem(_bmp_addr, 0xB2, 2))[0]
+        self._AC6 = unp('>H', self._bmp_i2c.readfrom_mem(_bmp_addr, 0xB4, 2))[0]
+        self._B1 = unp('>h', self._bmp_i2c.readfrom_mem(_bmp_addr, 0xB6, 2))[0]
+        self._B2 = unp('>h', self._bmp_i2c.readfrom_mem(_bmp_addr, 0xB8, 2))[0]
+        self._MB = unp('>h', self._bmp_i2c.readfrom_mem(_bmp_addr, 0xBA, 2))[0]
+        self._MC = unp('>h', self._bmp_i2c.readfrom_mem(_bmp_addr, 0xBC, 2))[0]
+        self._MD = unp('>h', self._bmp_i2c.readfrom_mem(_bmp_addr, 0xBE, 2))[0]
 
-    # Raw temperature value
-    UT_raw = 0
+        # settings to be adjusted by user
+        self.oversample_setting = 3
+        self.baseline = 101325.0
 
-    # Raw pressure value
-    UP_raw = 0
+        # output raw
+        self.UT_raw = None
+        self.B5_raw = None
+        self.MSB_raw = None
+        self.LSB_raw = None
+        self.XLSB_raw = None
+        self.gauge = self.makegauge() # Generator instance
+        for _ in range(128):
+            next(self.gauge)
+            time.sleep_ms(1)
 
-    # Delays for pressure readings
-    DELAYS = (5, 8, 14, 25)
+    def compvaldump(self):
+        '''
+        Returns a list of all compensation values
+        '''
+        return [self._AC1, self._AC2, self._AC3, self._AC4, self._AC5, self._AC6, 
+                self._B1, self._B2, self._MB, self._MC, self._MD, self.oversample_setting]
 
-    def __init__(self, i2cbus, os=3):
-        """
-        Constructor for initilization.
-        """
-        self.i2cbus = i2cbus
+    # gauge raw
+    def makegauge(self):
+        '''
+        Generator refreshing the raw measurments.
+        '''
+        delays = (5, 8, 14, 25)
+        while True:
+            self._bmp_i2c.writeto_mem(self._bmp_addr, 0xF4, bytearray([0x2E]))
+            t_start = time.ticks_ms()
+            while (time.ticks_ms() - t_start) <= 5: # 5mS delay
+                yield None
+            try:
+                self.UT_raw = self._bmp_i2c.readfrom_mem(self._bmp_addr, 0xF6, 2)
+            except:
+                yield None
+            self._bmp_i2c.writeto_mem(self._bmp_addr, 0xF4, bytearray([0x34+(self.oversample_setting << 6)]))
+            t_pressure_ready = delays[self.oversample_setting]
+            t_start = time.ticks_ms()
+            while (time.ticks_ms() - t_start) <= t_pressure_ready:
+                yield None
+            try:
+                self.MSB_raw = self._bmp_i2c.readfrom_mem(self._bmp_addr, 0xF6, 1)
+                self.LSB_raw = self._bmp_i2c.readfrom_mem(self._bmp_addr, 0xF7, 1)
+                self.XLSB_raw = self._bmp_i2c.readfrom_mem(self._bmp_addr, 0xF8, 1)
+            except:
+                yield None
+            yield True
 
-        # Checks whether the sensor with the given address is available.
-        if not self._BMP_ADRESS in self.i2cbus.scan():
-            raise
+    def blocking_read(self):
+        if next(self.gauge) is not None: # Discard old data
+            pass
+        while next(self.gauge) is None:
+            pass
 
-        if os > 3 or os < 0:
-            self.oversampling_setting = 3
+    @property
+    def oversample_sett(self):
+        return self.oversample_setting
+
+    @oversample_sett.setter
+    def oversample_sett(self, value):
+        if value in range(4):
+            self.oversample_setting = value
         else:
-            self.oversampling_setting = os
+            print('oversample_sett can only be 0, 1, 2 or 3, using 3 instead')
+            self.oversample_setting = 3
 
-        self._get_calib_coefficents()
-
-    def get_temp_pres(self):
-        """
-        Returns temperature and pressure readings of the sensor.
-        """
+    @property
+    def temperature(self):
+        '''
+        Temperature in degree C.
+        '''
+        #next(self.gauge)
+        self._bmp_i2c.writeto_mem(self._bmp_addr, 0xF4, bytearray([0x2E]))
+        time.sleep_ms(5)
+        self.UT_raw = self._bmp_i2c.readfrom_mem(self._bmp_addr, 0xF6, 2)
         try:
-            self._get_measurement_data()
-            temperature, B5 = self._calculate_temperature()
-            pressure = self._calculate_pressure(B5)
-            return (pressure, temperature)
-        except Exception:
-            raise
+            UT = unp('>H', self.UT_raw)[0]
+        except:
+            return 0.0
+        X1 = (UT-self._AC6)*self._AC5/2**15
+        X2 = self._MC*2**11/(X1+self._MD)
+        self.B5_raw = X1+X2
+        return (((X1+X2)+8)/2**4)/10
 
-    def set_oversampling_setting(self, os):
-        """
-        Changes the oversampling_setting os, which determines the
-        precision of the measurements, and by that the time it takes
-        to obtain a sample. Valid Values are 0 to 3:
-        0: 1 internal sample, 4.5 s max.
-        1: 2 internal sample, 7.5 s max.
-        2: 3 internal sample, 13.5 s max.
-        3: 4 internal sample, 25.5 s max.
-        """
-        if os > 3 or os < 0:
-            self.oversampling_setting = 3
-        else:
-            self.oversampling_setting = os
-
-    def _get_measurement_data(self):
-        """
-        Requests measurement data and stores raw measurement values in
-        UT and UP.
-        """
-        pressure_cmd = 0x34 + (self.oversampling_setting << 6)
-        PRES_MEAS_CMD = bytearray([pressure_cmd])
-        TEMP_MEAS_CMD = bytearray([0x2E])
-        delay = self.DELAYS[self.oversampling_setting]
+    @property
+    def pressure(self):
+        '''
+        Pressure in mbar.
+        '''
+        #next(self.gauge)
+        delays = (5, 8, 14, 25)
+        t_pressure_ready = delays[self.oversample_setting]
+        self.temperature  # Populate self.B5_raw
+        self._bmp_i2c.writeto_mem(self._bmp_addr, 0xF4, bytearray([0x34+(self.oversample_setting << 6)]))
+        time.sleep_ms(t_pressure_ready)
+        self.MSB_raw = self._bmp_i2c.readfrom_mem(self._bmp_addr, 0xF6, 1)
+        self.LSB_raw = self._bmp_i2c.readfrom_mem(self._bmp_addr, 0xF7, 1)
+        self.XLSB_raw = self._bmp_i2c.readfrom_mem(self._bmp_addr, 0xF8, 1)
         try:
-            self.i2cbus.writeto_mem(self._BMP_ADRESS, self.CMD_REG, TEMP_MEAS_CMD)
-            time.sleep_ms(5)
-            self.UT_raw = self.i2cbus.readfrom_mem(self._BMP_ADRESS,
-                                                   self.MSB_REG, 2)
-            self.i2cbus.writeto_mem(self._BMP_ADRESS,
-                                    self.CMD_REG, PRES_MEAS_CMD)
-            time.sleep_ms(delay)
-            self.UP_raw = self.i2cbus.readfrom_mem(self._BMP_ADRESS,
-                                                   self.MSB_REG, 3)
-        except Exception:
-            raise
-
-    def _calculate_temperature(self):
-        """
-        Calculates temperature in grad celsius.
-        """
-        try:
-            UT = self.UT_raw[0] << 8 + self.UT_raw[1]
-        except Exception:
-            raise
-        X1 = (UT-self.AC6)*self.AC5/2**15
-        X2 = self.MC*2**11/(X1+self.MD)
-        B5 = X1+X2
-        temp = (B5+8)/2**4
-        return temp, B5
-
-    def _calculate_pressure(self, B5):
-        """
-        Calculates pressure in hPa.
-        """
-        try:
-            UP = (self.UP_raw[0] << 16 + self.UP_raw[1] << 8 + self.UP_raw[2]) >> (8 - self.oversampling_setting)
-        except Exception:
-            raise
-        B6 = B5-4000
-        X1 = (self.B2*(B6**2/2**12))/2**11
-        X2 = self.AC2*B6/2**11
+            MSB = unp('B', self.MSB_raw)[0]
+            LSB = unp('B', self.LSB_raw)[0]
+            XLSB = unp('B', self.XLSB_raw)[0]
+        except:
+            return 0.0
+        UP = ((MSB << 16)+(LSB << 8)+XLSB) >> (8-self.oversample_setting)
+        B6 = self.B5_raw-4000
+        X1 = (self._B2*(B6**2/2**12))/2**11
+        X2 = self._AC2*B6/2**11
         X3 = X1+X2
-        B3 = ((int((self.AC1*4+X3)) << self.oversample_setting)+2)/4
-        X1 = self.AC3*B6/2**13
-        X2 = (self.B1*(B6**2/2**12))/2**16
+        B3 = ((int((self._AC1*4+X3)) << self.oversample_setting)+2)/4
+        X1 = self._AC3*B6/2**13
+        X2 = (self._B1*(B6**2/2**12))/2**16
         X3 = ((X1+X2)+2)/2**2
-        B4 = abs(self.AC4)*(X3+32768)/2**15
+        B4 = abs(self._AC4)*(X3+32768)/2**15
         B7 = (abs(UP)-B3) * (50000 >> self.oversample_setting)
         if B7 < 0x80000000:
-            pres = (B7*2)/B4
+            pressure = (B7*2)/B4
         else:
-            pres = (B7/B4)*2
-        X1 = (pres/2**8)**2
+            pressure = (B7/B4)*2
+        X1 = (pressure/2**8)**2
         X1 = (X1*3038)/2**16
-        X2 = (-7357*pres)/2**16
-        pres = (pres+(X1+X2+3791)/2**4)/100
-        return pres
+        X2 = (-7357*pressure)/2**16
+        return pressure+(X1+X2+3791)/2**4
 
-    def _get_calib_coefficents(self):
-        """
-        Obtains calibration data from memory, specified in the datasheet.
-        """
+    @property
+    def altitude(self):
+        '''
+        Altitude in m.
+        '''
         try:
-            self.AC1 = ustruct.unpack(">h", self.i2cbus.readfrom_mem(
-                self._BMP_ADRESS, 0xAA, 2))[0]
-            self.AC2 = ustruct.unpack(">h", self.i2cbus.readfrom_mem(
-                self._BMP_ADRESS, 0xAC, 2))[0]
-            self.AC3 = ustruct.unpack(">h", self.i2cbus.readfrom_mem(
-                self._BMP_ADRESS, 0xAE, 2))[0]
-            self.AC4 = ustruct.unpack(">H", self.i2cbus.readfrom_mem(
-                self._BMP_ADRESS, 0xB0, 2))[0]
-            self.AC5 = ustruct.unpack(">H", self.i2cbus.readfrom_mem(
-                self._BMP_ADRESS, 0xB2, 2))[0]
-            self.AC6 = ustruct.unpack(">H", self.i2cbus.readfrom_mem(
-                self._BMP_ADRESS, 0xB4, 2))[0]
-            self.B1 = ustruct.unpack(">h", self.i2cbus.readfrom_mem(
-                self._BMP_ADRESS, 0xB6, 2))[0]
-            self.B2 = ustruct.unpack(">h", self.i2cbus.readfrom_mem(
-                self._BMP_ADRESS, 0xB8, 2))[0]
-            self.MB = ustruct.unpack(">h", self.i2cbus.readfrom_mem(
-                self._BMP_ADRESS, 0xBA, 2))[0]
-            self.MC = ustruct.unpack(">h", self.i2cbus.readfrom_mem(
-                self._BMP_ADRESS, 0xBC, 2))[0]
-            self.MD = ustruct.unpack(">h", self.i2cbus.readfrom_mem(
-                self._BMP_ADRESS, 0xBE, 2))[0]
-        except Exception:
-            raise
+            p = -7990.0*math.log(self.pressure/self.baseline)
+        except:
+            p = 0.0
+        return p
