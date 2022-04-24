@@ -172,7 +172,7 @@ class BMP180():
         X1 = (pressure/2**8)**2
         X1 = (X1*3038)/2**16
         X2 = (-7357*pressure)/2**16
-        return pressure+(X1+X2+3791)/2**4
+        return (pressure+(X1+X2+3791)/2**4)/100
 
     @property
     def altitude(self):

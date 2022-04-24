@@ -1,3 +1,10 @@
+# -------------------------------------------------------------------------------
+# Obtained from:
+# https://github.com/wybiral/micropython-lora/blob/master/lora.py,
+# changed by Florian Stechmann,
+# last changed: 13.04.2022
+# -------------------------------------------------------------------------------
+
 import gc
 from machine import Pin
 import micropython
