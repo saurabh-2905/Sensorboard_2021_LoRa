@@ -394,7 +394,7 @@ while True:
     current_time = time.mktime(time.localtime())
     SENSOR_STATUS = 0
     LIMITS_BROKEN = 0
-    j = 6
+    j = 4
 
     for i in range(len(CONNECTION_VAR)):
         # take readings for all sensors, also note if one is not working

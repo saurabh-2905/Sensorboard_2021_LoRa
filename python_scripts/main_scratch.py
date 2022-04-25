@@ -1,9 +1,7 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika Unnikrishnan, Saurabh Band
-# date: 04.04.2022
-# function: Implentation of a LoRa receiving LoPy, which after receiving checks
-#           if any of the received data is not valid. If any data is not valid
-#           it wont be send via MQTT, otherwise it will.
+# date: 25.04.2022
+# function:
 # -------------------------------------------------------------------------------
 
 from datetime import datetime
@@ -175,7 +173,7 @@ def send_mqtt(values):
             if j < 4:
                 CLIENT.publish(topic=_TOPICS[j].format(id_val=id_val),
                                payload=str(values[j]))
-            elif j > 3:
+            elif j > 3 and not values[j] == 400:
                 CLIENT.publish(topic=_TOPICS[j].format(id_val=id_val),
                                payload=str(values[j]))
     else:
@@ -191,7 +189,7 @@ def send_mqtt(values):
                 i += 1
             else:
                 # if am value equals 200 that indicates a wrong reading
-                if not sensor_connections[id_val_index-1][j]:
+                if not sensor_connections[id_val_index-1][j] and not values[i] == 400:
                     CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val),
                                    payload=str(values[i]))
                     CLIENT.publish(topic=_TOPICS[i+1].format(id_val=id_val),
@@ -245,20 +243,17 @@ _Failed_sensor = "sensor{id_val}_stat_"
 # Topic for broken limits
 _Limits_broken = "board{id_val}/limits"
 
-# Time in seconds, in which the status of the boards is checked.
-timer_length = 60
-
 # Constants depending on the msg structure
 length_failed_sensors = 8
-# 12 sensor readings+sensor board status+limits broken+heartbeat+sensor id
-length_values = 12
-# dicitionary init for list with sensorboards
-sensorboard_list = dict()
+length_values = 12  # 12 sensor readings+sensor board status+limits broken+heartbeat+sensor id
 
 cb_timer_done = False
 
 # board_ids based on the manuall numbering of the boards (to map to old ids)
 board_ids = read_config()
+sensorboard_list = dict()
+for i in range(len(board_ids)):
+    sensorboard_list[board_ids[i]] = 0
 
 # Maximum of heartbeats that are allowed to be missed.
 MAX_COUNT = 3
@@ -279,14 +274,15 @@ _pkng_frmt = '>12f3HI'
 
 lora_init()
 connect_mqtt()
+
 print('Receiving Packets......')
 # Start of loop
-threading.Timer(90, cb).start()
+threading.Timer(60, cb).start()
 all_values = []
 while True:
     recv_msg = receive()
     if len(recv_msg) == MESSAGE_LENGTH:  # to differentiate between heartbeat and msg
-        if struct.unpack(">L", recv_msg[-4:])[0] != crc32(0, recv_msg[:-4], 60):
+        if struct.unpack(">L", recv_msg[-4:])[0] != crc32(0, recv_msg[:-4], 62):
             print('Invalid CRC32 in msg')
             receiver_timestamp = time.localtime()
             rx_datetime = create_timestamp(receiver_timestamp)
@@ -322,9 +318,8 @@ while True:
             send_mqtt(value_list)
             print("Sent to MQTT")
     else:
-        write_to_log_time(
-            'Error in msg length. Received following msg: {}'.format(
-                len(recv_msg)), str(timestamp[0]), str(rx_datetime))
+        write_to_log_time('Heartbeat: {}'.format(len(recv_msg)),
+                          str(timestamp[0]), str(rx_datetime))
 
     # checks if any boards are not working
     if cb_timer_done:
@@ -346,4 +341,4 @@ while True:
         with open('sensor_values_raspbery.pkl', 'wb') as f:
             pickle.dump(all_values, f)
         cb_timer_done = False
-        threading.Timer(timer_length, cb).start()
+        threading.Timer(60, cb).start()
