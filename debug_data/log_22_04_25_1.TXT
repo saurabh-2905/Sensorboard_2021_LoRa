@@ -1,0 +1,78 @@
+Boot process was successfull! Starting initialization... UART establshed	2
+I2C establshed	2
+SPI established	2
+LoRa established	2
+CO2 initialized	2
+CO initialized	2
+O2 initialized	2
+pressure initialized	2
+AM1 initialized	2
+AM2 initialized	2
+AM3 initialized	2
+AM4 initialized	2
+LoRa callback set	2
+msg sending timer activated	2
+start measuring	2
+Current connection variables (CO2, CO, O2, BMP, AMs): [1, 1, 1, 1, 1, 1, 1, 1]	6
+Limits broken, msg sent	6
+Current connection variables (CO2, CO, O2, BMP, AMs): [1, 1, 1, 1, 1, 1, 1, 1]	9
+Received and received msg processed	9
+Limits broken, msg sent	10
+Current connection variables (CO2, CO, O2, BMP, AMs): [1, 1, 1, 1, 1, 1, 1, 1]	13
+Received and received msg processed	13
+Limits broken, msg sent	13
+Current connection variables (CO2, CO, O2, BMP, AMs): [1, 1, 1, 1, 1, 1, 1, 1]	16
+Received and received msg processed	16
+Limits broken, msg sent	16
+Current connection variables (CO2, CO, O2, BMP, AMs): [1, 1, 1, 1, 1, 1, 1, 1]	19
+Received and received msg processed	19
+Limits broken, msg sent	20
+Current connection variables (CO2, CO, O2, BMP, AMs): [1, 1, 1, 1, 1, 1, 1, 1]	23
+Received and received msg processed	23
+Limits broken, msg sent	23
+Current connection variables (CO2, CO, O2, BMP, AMs): [1, 1, 1, 1, 1, 1, 1, 1]	26
+Received and received msg processed	26
+Limits broken, msg sent	26
+Current connection variables (CO2, CO, O2, BMP, AMs): [1, 1, 1, 1, 1, 1, 1, 1]	29
+Received and received msg processed	29
+Limits broken, msg sent	30
+Current connection variables (CO2, CO, O2, BMP, AMs): [1, 1, 1, 1, 1, 1, 1, 1]	33
+Received and received msg processed	33
+Limits broken, msg sent	33
+Current connection variables (CO2, CO, O2, BMP, AMs): [1, 1, 1, 1, 1, 1, 1, 1]	36
+Received and received msg processed	36
+Limits broken, msg sent	36
+Current connection variables (CO2, CO, O2, BMP, AMs): [1, 1, 1, 1, 1, 1, 1, 1]	39
+Received and received msg processed	39
+Limits broken, msg sent	40
+Current connection variables (CO2, CO, O2, BMP, AMs): [1, 1, 1, 1, 1, 1, 1, 1]	43
+Received and received msg processed	43
+Limits broken, msg sent	43
+Current connection variables (CO2, CO, O2, BMP, AMs): [1, 1, 1, 1, 1, 1, 1, 1]	46
+Received and received msg processed	46
+Limits broken, msg sent	46
+Current connection variables (CO2, CO, O2, BMP, AMs): [1, 1, 1, 1, 1, 1, 1, 1]	49
+Received and received msg processed	49
+Limits broken, msg sent	50
+Current connection variables (CO2, CO, O2, BMP, AMs): [1, 1, 1, 1, 1, 1, 1, 1]	53
+Received and received msg processed	53
+Limits broken, msg sent	53
+Current connection variables (CO2, CO, O2, BMP, AMs): [1, 1, 1, 1, 1, 1, 1, 1]	56
+Received and received msg processed	56
+Limits broken, msg sent	56
+Boot process was successfull! Starting initialization... UART establshed	726
+I2C establshed	726
+SPI established	726
+LoRa established	726
+CO2 initialized	726
+CO initialized	726
+O2 initialized	726
+pressure initialized	726
+AM1 initialized	726
+AM2 initialized	726
+AM3 initialized	726
+AM4 initialized	726
+LoRa callback set	726
+msg sending timer activated	726
+start measuring	726
+failed BMP: 'BMP180' object has no attribute 'pressure'	726
