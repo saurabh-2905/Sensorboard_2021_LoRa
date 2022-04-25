@@ -284,6 +284,7 @@ while True:
     if len(recv_msg) == MESSAGE_LENGTH:  # to differentiate between heartbeat and msg
         if struct.unpack(">L", recv_msg[-4:])[0] != crc32(0, recv_msg[:-4], 62):
             print('Invalid CRC32 in msg')
+            timestamp = list(struct.unpack(">L", recv_msg[-8:-4]))
             receiver_timestamp = time.localtime()
             rx_datetime = create_timestamp(receiver_timestamp)
             write_to_log_time('Invalid CRC32 in msg: ', str(timestamp[0]), str(rx_datetime))
@@ -308,14 +309,17 @@ while True:
                 sensorboard_list[values[15]] += 1
 
             value_list = list(values)
-            print(value_list, timestamp, create_timestamp(receiver_timestamp))
+            
             for i in range(len(value_list)):
                 if i <= 3:
                     value_list[i] = round(value_list[i], 2)
                 elif i <= 11:
                     value_list[i] = round(value_list[i], 1)
-
-            send_mqtt(value_list)
+            try:
+                send_mqtt(value_list)
+                print(value_list, timestamp, create_timestamp(receiver_timestamp))
+            except Exception as e:
+                print("---------------- UNKOWN_BOARD_ID: " + str(values[15]) + " ----------------")
             print("Sent to MQTT")
     else:
         write_to_log_time('Heartbeat: {}'.format(len(recv_msg)),
@@ -323,20 +327,22 @@ while True:
 
     # checks if any boards are not working
     if cb_timer_done:
-        for each_board in list(sensorboard_list.keys()):
-            print(each_board)
-            old_board_id = map_board_ids(each_board)
-            signal_count = sensorboard_list[each_board]
-            if signal_count < 1:
-                print('Board {} not working'.format(old_board_id))
-                CLIENT.publish(topic=_Failed_times.format(id_val=old_board_id),
-                               payload="10000")
-            else:
-                print('signal_count:', signal_count)
-                CLIENT.publish(topic=_Failed_times.format(id_val=old_board_id),
-                               payload="1000")
-            sensorboard_list[each_board] = 0
-
+        try:
+            for each_board in list(sensorboard_list.keys()):
+                print(each_board)
+                old_board_id = map_board_ids(each_board)
+                signal_count = sensorboard_list[each_board]
+                if signal_count < 1:
+                    print('Board {} not working'.format(old_board_id))
+                    CLIENT.publish(topic=_Failed_times.format(id_val=old_board_id),
+                                   payload="10000")
+                else:
+                    print('signal_count:', signal_count)
+                    CLIENT.publish(topic=_Failed_times.format(id_val=old_board_id),
+                                   payload="1000")
+                sensorboard_list[each_board] = 0
+        except Exception as e:
+            pass
         # store the values for visualization
         with open('sensor_values_raspbery.pkl', 'wb') as f:
             pickle.dump(all_values, f)
