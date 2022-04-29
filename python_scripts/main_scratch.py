@@ -309,7 +309,7 @@ while True:
                 sensorboard_list[values[15]] += 1
 
             value_list = list(values)
-            
+
             for i in range(len(value_list)):
                 if i <= 3:
                     value_list[i] = round(value_list[i], 2)
