@@ -27,12 +27,12 @@ def measure_scd30(stat):
     try:
         if scd30.get_status_ready() == 1:
             SENSOR_VALUES[0] = scd30.read_measurement()[0]
-            if not CONNECTION_VAR[stat]:
-                CONNECTION_VAR[stat] = 1
+            CONNECTION_VAR[stat] = 1
         else:
             SENSOR_VALUES[0] = -1
-    except Exception:
+    except Exception as e:
         CONNECTION_VAR[stat] = 0
+        write_to_log("CO2 error: {}".format(e), str(time.mktime(time.localtime())))
 
 
 def measure_co(stat):
@@ -41,10 +41,10 @@ def measure_co(stat):
     """
     try:
         SENSOR_VALUES[1] = MCP_CO.read_measurement_co()
-        if not CONNECTION_VAR[stat]:
-            CONNECTION_VAR[stat] = 1
-    except Exception:
+        CONNECTION_VAR[stat] = 1
+    except Exception as e:
         CONNECTION_VAR[stat] = 0
+        write_to_log("CO error: {}".format(e), str(time.mktime(time.localtime())))
 
 
 def measure_o2(stat):
@@ -53,10 +53,10 @@ def measure_o2(stat):
     """
     try:
         SENSOR_VALUES[2] = MCP_O2.read_measurement_o2()
-        if not CONNECTION_VAR[stat]:
-            CONNECTION_VAR[stat] = 1
-    except Exception:
+        CONNECTION_VAR[stat] = 1
+    except Exception as e:
         CONNECTION_VAR[stat] = 0
+        write_to_log("O2 error: {}".format(e), str(time.mktime(time.localtime())))
 
 
 def measure_bmp(stat):
@@ -65,10 +65,10 @@ def measure_bmp(stat):
     """
     try:
         SENSOR_VALUES[3] = BMP.pressure
-        if not CONNECTION_VAR[stat]:
-            CONNECTION_VAR[stat] = 1
-    except Exception:
+        CONNECTION_VAR[stat] = 1
+    except Exception as e:
         CONNECTION_VAR[stat] = 0
+        write_to_log("BMP error: {}".format(e), str(time.mktime(time.localtime())))
 
 
 def measure_am1(stat):
@@ -78,10 +78,10 @@ def measure_am1(stat):
     global am_temp, am_hum
     try:
         am_temp, am_hum = AM2301_1.read_measurement()
-        if not CONNECTION_VAR[stat]:
-            CONNECTION_VAR[stat] = 1
-    except Exception:
+        CONNECTION_VAR[stat] = 1
+    except Exception as e:
         CONNECTION_VAR[stat] = 0
+        write_to_log("AM1 error: {}".format(e), str(time.mktime(time.localtime())))
 
 
 def measure_am2(stat):
@@ -91,10 +91,10 @@ def measure_am2(stat):
     global am_temp, am_hum
     try:
         am_temp, am_hum = AM2301_2.read_measurement()
-        if not CONNECTION_VAR[stat]:
-            CONNECTION_VAR[stat] = 1
+        CONNECTION_VAR[stat] = 1
     except Exception:
         CONNECTION_VAR[stat] = 0
+        write_to_log("AM2 error: {}".format(e), str(time.mktime(time.localtime())))
 
 
 def measure_am3(stat):
@@ -104,10 +104,10 @@ def measure_am3(stat):
     global am_temp, am_hum
     try:
         am_temp, am_hum = AM2301_3.read_measurement()
-        if not CONNECTION_VAR[stat]:
-            CONNECTION_VAR[stat] = 1
-    except Exception:
+        CONNECTION_VAR[stat] = 1
+    except Exception as e:
         CONNECTION_VAR[stat] = 0
+        write_to_log("AM3 error: {}".format(e), str(time.mktime(time.localtime())))
 
 
 def measure_am4(stat):
@@ -117,10 +117,10 @@ def measure_am4(stat):
     global am_temp, am_hum
     try:
         am_temp, am_hum = AM2301_4.read_measurement()
-        if not CONNECTION_VAR[stat]:
-            CONNECTION_VAR[stat] = 1
-    except Exception:
+        CONNECTION_VAR[stat] = 1
+    except Exception as e:
         CONNECTION_VAR[stat] = 0
+        write_to_log("AM4 error: {}".format(e), str(time.mktime(time.localtime())))
 
 
 def cb_30(p):

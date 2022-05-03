@@ -30,8 +30,9 @@ def measure_scd30(stat):
             CONNECTION_VAR[stat] = 1
         else:
             SENSOR_VALUES[0] = -1
-    except Exception:
+    except Exception as e:
         CONNECTION_VAR[stat] = 0
+        write_to_log("CO2 error: {}".format(e), str(time.mktime(time.localtime())))
 
 
 def measure_co(stat):
@@ -41,8 +42,9 @@ def measure_co(stat):
     try:
         SENSOR_VALUES[1] = MCP_CO.read_measurement_co()
         CONNECTION_VAR[stat] = 1
-    except Exception:
+    except Exception as e:
         CONNECTION_VAR[stat] = 0
+        write_to_log("CO error: {}".format(e), str(time.mktime(time.localtime())))
 
 
 def measure_o2(stat):
@@ -52,8 +54,9 @@ def measure_o2(stat):
     try:
         SENSOR_VALUES[2] = MCP_O2.read_measurement_o2()
         CONNECTION_VAR[stat] = 1
-    except Exception:
+    except Exception as e:
         CONNECTION_VAR[stat] = 0
+        write_to_log("O2 error: {}".format(e), str(time.mktime(time.localtime())))
 
 
 def measure_bmp(stat):
@@ -63,8 +66,9 @@ def measure_bmp(stat):
     try:
         SENSOR_VALUES[3] = BMP.pressure
         CONNECTION_VAR[stat] = 1
-    except Exception:
+    except Exception as e:
         CONNECTION_VAR[stat] = 0
+        write_to_log("BMP error: {}".format(e), str(time.mktime(time.localtime())))
 
 
 def measure_am1(stat):
@@ -75,8 +79,9 @@ def measure_am1(stat):
     try:
         am_temp, am_hum = AM2301_1.read_measurement()
         CONNECTION_VAR[stat] = 1
-    except Exception:
+    except Exception as e:
         CONNECTION_VAR[stat] = 0
+        write_to_log("AM1 error: {}".format(e), str(time.mktime(time.localtime())))
 
 
 def measure_am2(stat):
@@ -87,8 +92,9 @@ def measure_am2(stat):
     try:
         am_temp, am_hum = AM2301_2.read_measurement()
         CONNECTION_VAR[stat] = 1
-    except Exception:
+    except Exception as e:
         CONNECTION_VAR[stat] = 0
+        write_to_log("AM2 error: {}".format(e), str(time.mktime(time.localtime())))
 
 
 def measure_am3(stat):
@@ -99,8 +105,9 @@ def measure_am3(stat):
     try:
         am_temp, am_hum = AM2301_3.read_measurement()
         CONNECTION_VAR[stat] = 1
-    except Exception:
+    except Exception as e:
         CONNECTION_VAR[stat] = 0
+        write_to_log("AM3 error: {}".format(e), str(time.mktime(time.localtime())))
 
 
 def measure_am4(stat):
@@ -111,8 +118,9 @@ def measure_am4(stat):
     try:
         am_temp, am_hum = AM2301_4.read_measurement()
         CONNECTION_VAR[stat] = 1
-    except Exception:
+    except Exception as e:
         CONNECTION_VAR[stat] = 0
+        write_to_log("AM4 error: {}".format(e), str(time.mktime(time.localtime())))
 
 
 def cb_30(p):
