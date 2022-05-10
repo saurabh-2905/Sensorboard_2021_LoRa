@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika Unnikrishnan, Saurabh Band
-# date: 25.04.2022
+# date: 10.05.2022
 # function:
 # -------------------------------------------------------------------------------
 
@@ -173,7 +173,7 @@ def send_mqtt(values):
             if j < 4:
                 CLIENT.publish(topic=_TOPICS[j].format(id_val=id_val),
                                payload=str(values[j]))
-            elif j > 3 and not values[j] == 400:
+            elif j > 3:
                 CLIENT.publish(topic=_TOPICS[j].format(id_val=id_val),
                                payload=str(values[j]))
     else:
@@ -189,7 +189,7 @@ def send_mqtt(values):
                 i += 1
             else:
                 # if am value equals 200 that indicates a wrong reading
-                if not sensor_connections[id_val_index-1][j] and not values[i] == 400:
+                if not sensor_connections[id_val_index-1][j]:
                     CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val),
                                    payload=str(values[i]))
                     CLIENT.publish(topic=_TOPICS[i+1].format(id_val=id_val),
@@ -268,6 +268,9 @@ sensor_connections = [[0, 0, 0, 0, 0, 0, 0, 0],
 MQTT_SERVER = '192.168.30.17'
 CLIENT = mqtt.Client()
 
+# interval for checking if the board are working
+timer_interval = 90
+
 # Connect WIFI and MQTT
 MESSAGE_LENGTH = 66  # 58+4+4
 _pkng_frmt = '>12f3HI'
@@ -277,7 +280,7 @@ connect_mqtt()
 
 print('Receiving Packets......')
 # Start of loop
-threading.Timer(60, cb).start()
+threading.Timer(timer_interval, cb).start()
 all_values = []
 while True:
     recv_msg = receive()
@@ -347,4 +350,4 @@ while True:
         with open('sensor_values_raspbery.pkl', 'wb') as f:
             pickle.dump(all_values, f)
         cb_timer_done = False
-        threading.Timer(60, cb).start()
+        threading.Timer(timer_interval, cb).start()
