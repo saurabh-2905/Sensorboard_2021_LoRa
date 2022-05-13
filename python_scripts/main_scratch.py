@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika Unnikrishnan, Saurabh Band
-# date: 10.05.2022
+# date: 13.05.2022
 # function:
 # -------------------------------------------------------------------------------
 
@@ -321,11 +321,11 @@ while True:
             try:
                 send_mqtt(value_list)
                 print(value_list, timestamp, create_timestamp(receiver_timestamp))
-            except Exception as e:
+            except Exception:
                 print("---------------- UNKOWN_BOARD_ID: " + str(values[15]) + " ----------------")
             print("Sent to MQTT")
     else:
-        write_to_log_time('Heartbeat: {}'.format(len(recv_msg)),
+        write_to_log_time("Message that does no belong to the system: {}".format(len(recv_msg)),
                           str(timestamp[0]), str(rx_datetime))
 
     # checks if any boards are not working
@@ -344,7 +344,7 @@ while True:
                     CLIENT.publish(topic=_Failed_times.format(id_val=old_board_id),
                                    payload="1000")
                 sensorboard_list[each_board] = 0
-        except Exception as e:
+        except Exception:
             pass
         # store the values for visualization
         with open('sensor_values_raspbery.pkl', 'wb') as f:

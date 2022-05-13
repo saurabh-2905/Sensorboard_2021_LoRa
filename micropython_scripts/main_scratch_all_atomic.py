@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Malavika Unnikrishnan, Florian Stechmann, Saurabh Band
-# date: 24.04.2022
+# date: 12.05.2022
 # function: Code for esp32 board with lora module.
 # -------------------------------------------------------------------------------
 
@@ -26,10 +26,8 @@ def measure_scd30(stat):
     """
     try:
         if scd30.get_status_ready() == 1:
-            SENSOR_VALUES[0] = scd30.read_measurement()[0]
+            SENSOR_DATA[0] = round(scd30.read_measurement()[0], 2)
             CONNECTION_VAR[stat] = 1
-        else:
-            SENSOR_VALUES[0] = -1
     except Exception as e:
         CONNECTION_VAR[stat] = 0
         write_to_log("CO2 error: {}".format(e), str(time.mktime(time.localtime())))
@@ -40,7 +38,7 @@ def measure_co(stat):
     Takes CO reading.
     """
     try:
-        SENSOR_VALUES[1] = MCP_CO.read_measurement_co()
+        SENSOR_DATA[1] = MCP_CO.read_measurement_co()
         CONNECTION_VAR[stat] = 1
     except Exception as e:
         CONNECTION_VAR[stat] = 0
@@ -52,7 +50,7 @@ def measure_o2(stat):
     Takes O2 reading.
     """
     try:
-        SENSOR_VALUES[2] = MCP_O2.read_measurement_o2()
+        SENSOR_DATA[2] = MCP_O2.read_measurement_o2()
         CONNECTION_VAR[stat] = 1
     except Exception as e:
         CONNECTION_VAR[stat] = 0
@@ -64,7 +62,7 @@ def measure_bmp(stat):
     Takes pressure reading.
     """
     try:
-        SENSOR_VALUES[3] = BMP.pressure
+        SENSOR_DATA[3] = BMP.pressure
         CONNECTION_VAR[stat] = 1
     except Exception as e:
         CONNECTION_VAR[stat] = 0
@@ -259,10 +257,6 @@ CONNECTION_A4 = 1
 MAX_QUEUE = const(10)
 
 # initial values for sensors
-scd_co2 = 0
-mcp_co = 0
-mcp_o2 = 0
-bmp_pres = 0
 am_temp = 0
 am_hum = 0
 
@@ -367,10 +361,6 @@ CONNECTION_VAR = [CONNECTION_CO2, CONNECTION_CO,
 # list with all sensor names for log purposes
 SENSORS_LIST = ("CO2", "CO", "O2", "BMP", "AM1", "AM2", "AM3", "AM4")
 
-# values from measure functions,
-# except for AMs (they are taken care of elsewhere)
-SENSOR_VALUES = [scd_co2, mcp_co, mcp_o2, bmp_pres]
-
 # functions for taking sensor readings
 FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp,
             measure_am1, measure_am2, measure_am3, measure_am4)
@@ -410,12 +400,9 @@ while True:
         try:
             if i < 4:
                 # readings for CO2, CO, O2 and pressure are taken.
-                micropython.schedule(func_call, i)
-                val = SENSOR_VALUES[i]
-                if not val == -1:
-                    if not (THRESHOLD_LIMITS[i][0] <= val <= THRESHOLD_LIMITS[i][1]):
-                        LIMITS_BROKEN = 1
-                SENSOR_DATA[i] = round(val, 2)
+                micropython.schedule(func_call, i) # maybe executes to late for next statement?
+                if not (THRESHOLD_LIMITS[i][0] <= SENSOR_DATA[i] <= THRESHOLD_LIMITS[i][1]):
+                    LIMITS_BROKEN = 1
             else:
                 # AM2301 readings (involves 2 values)
                 micropython.schedule(func_call, i)
@@ -437,50 +424,58 @@ while True:
                 SENSOR_STATUS += 2**(i)
             else:
                 SENSOR_STATUS += 2**(i)
+    try:
+        # prepare the packted to be sent
+        msg = ustruct.pack(_pkng_frmt, SENSOR_DATA[0], SENSOR_DATA[1],
+                           SENSOR_DATA[2], SENSOR_DATA[3], SENSOR_DATA[4],
+                           SENSOR_DATA[5], SENSOR_DATA[6], SENSOR_DATA[7],
+                           SENSOR_DATA[8], SENSOR_DATA[9], SENSOR_DATA[10],
+                           SENSOR_DATA[11], SENSOR_STATUS, LIMITS_BROKEN,
+                           0, SENSORBOARD_ID)  # current Sensorreadings
+        msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
+        msg += ustruct.pack(">L", crc32(0, msg, 62))  # add 32-bit crc to the msg
 
-    # prepare the packted to be sent
-    msg = ustruct.pack(_pkng_frmt, SENSOR_DATA[0], SENSOR_DATA[1],
-                       SENSOR_DATA[2], SENSOR_DATA[3], SENSOR_DATA[4],
-                       SENSOR_DATA[5], SENSOR_DATA[6], SENSOR_DATA[7],
-                       SENSOR_DATA[8], SENSOR_DATA[9], SENSOR_DATA[10],
-                       SENSOR_DATA[11], SENSOR_STATUS, LIMITS_BROKEN,
-                       0, SENSORBOARD_ID)  # current Sensorreadings
-    msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
-    msg += ustruct.pack(">L", crc32(0, msg, 62))  # add 32-bit crc to the msg
-
-    micropython.schedule(lora_rcv_exec, 0)  # process received msgs
+        micropython.schedule(lora_rcv_exec, 0)  # process received msgs
+    except Exception as e:
+        write_to_log("error msg packing: {}".format(e), str(current_time))
 
     if LIMITS_BROKEN:
-        add_to_que(msg, current_time)
-        lora.send(msg)  # Sends imidiately if threshold limits are broken.
-        lora.recv()
+        try:
+            add_to_que(msg, current_time)
+            lora.send(msg)  # Sends imidiately if threshold limits are broken.
+            lora.recv()
+        except Exception as e:
+            write_to_log("error limits broken: {}".format(e), str(current_time))
     elif cb_30_done:  # send the messages every 30 seconds
         try:
             add_to_que(msg, current_time)
             lora.send(que[0][0])
             lora.recv()
+            start_time = current_time
+            timer1.init(period=retx_interval, mode=Timer.PERIODIC, callback=cb_retrans)
+            timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
+
+            # randomize the msg interval to avoid continous collision of packets
+            if random.random() >= 0.4:
+                # select time randomly with steps of 1000ms, because the max on
+                # air time is 123ms and 390ms for SF7 and SF9 resp.
+                msg_interval = random.randrange(20000, 40000, 1000)
+                # select random time interval with step size of 1 sec
+                retx_interval = random.randrange(2000, 10000, 1000)
+
+            # reset timer boolean
         except Exception as e:
-            write_to_log("callback 30: {}".format(e), str(current_time))
-        start_time = current_time
-        timer1.init(period=retx_interval, mode=Timer.PERIODIC, callback=cb_retrans)
-        timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
-
-        # randomize the msg interval to avoid continous collision of packets
-        if random.random() >= 0.4:
-            # select time randomly with steps of 1000ms, because the max on
-            # air time is 123ms and 390ms for SF7 and SF9 resp.
-            msg_interval = random.randrange(20000, 40000, 1000)
-            # select random time interval with step size of 1 sec
-            retx_interval = random.randrange(2000, 10000, 1000)
-
-        # reset timer boolean
+            write_to_log("error cb_30_done: {}".format(e), str(current_time))
         cb_30_done = False
     elif cb_retrans_done:  # retransmit every 5 seconds for pkts with no ack
-        cb_retrans_done = False
-        retransmit_count += 1
-        if que != []:
-            lora.send(que[0][0])
-            lora.recv()
-        if retransmit_count >= 2:
-            timer1.deinit()
-            retransmit_count = 0
+        try:
+            cb_retrans_done = False
+            retransmit_count += 1
+            if que != []:
+                lora.send(que[0][0])
+                lora.recv()
+            if retransmit_count >= 2:
+                timer1.deinit()
+                retransmit_count = 0
+        except Exception as e:
+            write_to_log("error retransmit: {}".format(e), str(current_time))
