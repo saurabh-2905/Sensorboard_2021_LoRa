@@ -446,7 +446,8 @@ while True:
             lora.recv()
         except Exception as e:
             write_to_log("error limits broken: {}".format(e), str(current_time))
-    elif cb_30_done:  # send the messages every 30 seconds
+    micropython.schedule(lora_rcv_exec, 0)  # process received msgs
+    if cb_30_done:  # send the messages every 30 seconds
         try:
             add_to_que(msg, current_time)
             lora.send(que[0][0])
