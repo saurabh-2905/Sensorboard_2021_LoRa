@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # authors: Malavika Unnikrishnan, Florian Stechmann, Saurabh Band
-# date: 13.05.2022
+# date: 20.05.2022
 # function: Code for esp32 board with lora module and sd card reader
 # -------------------------------------------------------------------------------
 
@@ -285,7 +285,7 @@ start_msg = "Boot process was successfull! Starting initialization..."
 status_msg = "Current connection variables (CO2, CO, O2, BMP, AMs): "
 
 # packing format
-_pkng_frmt = ">12f3HI"
+_pkng_frmt = ">13f3HI"
 SENSORBOARD_ID = get_node_id()
 
 # allcoate emergeny buffer for interrupt signals
@@ -460,16 +460,17 @@ while True:
     try:
         write_to_log(status_msg+str(CONNECTION_VAR),
                      str(time.mktime(time.localtime())))
-
+        # get rssi for performance information
+        rssi = lora.get_rssi()
         # prepare data to be sent
         msg = ustruct.pack(_pkng_frmt, SENSOR_DATA[0], SENSOR_DATA[1],
                            SENSOR_DATA[2], SENSOR_DATA[3], SENSOR_DATA[4],
                            SENSOR_DATA[5], SENSOR_DATA[6], SENSOR_DATA[7],
                            SENSOR_DATA[8], SENSOR_DATA[9], SENSOR_DATA[10],
-                           SENSOR_DATA[11], SENSOR_STATUS, LIMITS_BROKEN,
+                           SENSOR_DATA[11], rssi, SENSOR_STATUS, LIMITS_BROKEN,
                            0, SENSORBOARD_ID)  # current Sensorreadings
         msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
-        msg += ustruct.pack(">L", crc32(0, msg, 62))  # add 32-bit crc to the msg
+        msg += ustruct.pack(">L", crc32(0, msg, 66))  # add 32-bit crc to the msg
 
         micropython.schedule(lora_rcv_exec, 0)  # process received msgs
     except Exception as e:
@@ -481,7 +482,7 @@ while True:
                 add_to_que(msg, current_time)
                 lora.send(msg)  # Sends imidiately if threshold limits are broken.
                 lora.recv()
-                write_to_log("Limits broken, msg sent",
+                write_to_log("PKT sent, Limits broken",
                              str(time.mktime(time.localtime())))
             except Exception as e:
                 write_to_log("error limits broken: {}".format(e), str(current_time))
@@ -491,7 +492,7 @@ while True:
                 add_to_que(msg, current_time)
                 lora.send(que[0][0])
                 lora.recv()
-                write_to_log("msg sent", str(time.mktime(time.localtime())))
+                write_to_log("PKT sent", str(time.mktime(time.localtime())))
                 start_time = current_time
                 timer1.init(period=retx_interval, mode=Timer.PERIODIC, callback=cb_retrans)
                 timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
