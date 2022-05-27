@@ -347,6 +347,14 @@ while True:
                 print("---------------- UNKOWN_BOARD_ID: " +
                       str(values[16]) + " ----------------")
             print("Sent to MQTT")
+    elif len(recv_msg) == 16:
+        if struct.unpack(">L", recv_msg[-4:])[0] == crc32(0, recv_msg[:-4], 12):
+            values = struct.unpack(">3f", recv_msg[:-4])
+            print("bit value: " + values[0] +
+                  " voltage (mV): " + values[1] +
+                  " pH Value: " + values[2])
+            connect_mqtt()
+            CLIENT.publish(topic="pbr/ph", payload=values[2])
     else:
         write_to_log_time(
             "Message that does no belong to the system: {}".format(
