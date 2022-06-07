@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
-# authors: Malavika Unnikrishnan, Florian Stechmann, Saurabh Band
-# date: 20.05.2022
+# authors: Florian Stechmann, Saurabh Band, Malavika Unnikrishnan
+# date: 07.06.2022
 # function: Code for esp32 board with lora module and sd card reader.
 #           Needed SD Card format is W95 FAT32 (LBA).
 # -------------------------------------------------------------------------------
@@ -31,7 +31,8 @@ def measure_scd30(stat):
             CONNECTION_VAR[stat] = 1
     except Exception as e:
         CONNECTION_VAR[stat] = 0
-        write_to_log("CO2 error: {}".format(e), str(time.mktime(time.localtime())))
+        write_to_log("CO2 error: {}".format(e),
+                     str(time.mktime(time.localtime())))
 
 
 def measure_co(stat):
@@ -43,7 +44,8 @@ def measure_co(stat):
         CONNECTION_VAR[stat] = 1
     except Exception as e:
         CONNECTION_VAR[stat] = 0
-        write_to_log("CO error: {}".format(e), str(time.mktime(time.localtime())))
+        write_to_log("CO error: {}".format(e),
+                     str(time.mktime(time.localtime())))
 
 
 def measure_o2(stat):
@@ -55,7 +57,8 @@ def measure_o2(stat):
         CONNECTION_VAR[stat] = 1
     except Exception as e:
         CONNECTION_VAR[stat] = 0
-        write_to_log("O2 error: {}".format(e), str(time.mktime(time.localtime())))
+        write_to_log("O2 error: {}".format(e),
+                     str(time.mktime(time.localtime())))
 
 
 def measure_bmp(stat):
@@ -67,7 +70,8 @@ def measure_bmp(stat):
         CONNECTION_VAR[stat] = 1
     except Exception as e:
         CONNECTION_VAR[stat] = 0
-        write_to_log("BMP error: {}".format(e), str(time.mktime(time.localtime())))
+        write_to_log("BMP error: {}".format(e),
+                     str(time.mktime(time.localtime())))
 
 
 def measure_am1(stat):
@@ -80,7 +84,8 @@ def measure_am1(stat):
         CONNECTION_VAR[stat] = 1
     except Exception as e:
         CONNECTION_VAR[stat] = 0
-        write_to_log("AM1 error: {}".format(e), str(time.mktime(time.localtime())))
+        write_to_log("AM1 error: {}".format(e),
+                     str(time.mktime(time.localtime())))
 
 
 def measure_am2(stat):
@@ -91,9 +96,10 @@ def measure_am2(stat):
     try:
         am_temp, am_hum = AM2301_2.read_measurement()
         CONNECTION_VAR[stat] = 1
-    except Exception:
+    except Exception as e:
         CONNECTION_VAR[stat] = 0
-        write_to_log("AM2 error: {}".format(e), str(time.mktime(time.localtime())))
+        write_to_log("AM2 error: {}".format(e),
+                     str(time.mktime(time.localtime())))
 
 
 def measure_am3(stat):
@@ -106,7 +112,8 @@ def measure_am3(stat):
         CONNECTION_VAR[stat] = 1
     except Exception as e:
         CONNECTION_VAR[stat] = 0
-        write_to_log("AM3 error: {}".format(e), str(time.mktime(time.localtime())))
+        write_to_log("AM3 error: {}".format(e),
+                     str(time.mktime(time.localtime())))
 
 
 def measure_am4(stat):
@@ -119,7 +126,8 @@ def measure_am4(stat):
         CONNECTION_VAR[stat] = 1
     except Exception as e:
         CONNECTION_VAR[stat] = 0
-        write_to_log("AM4 error: {}".format(e), str(time.mktime(time.localtime())))
+        write_to_log("AM4 error: {}".format(e),
+                     str(time.mktime(time.localtime())))
 
 
 def cb_30(p):
@@ -248,6 +256,8 @@ AM2301_4_ADRR = const(15)  # 16 -> 15
 UART_TX = const(17)
 UART_RX = const(16)
 
+# maximum number of values in queue
+MAX_QUEUE = const(10)
 
 # connection_variables init for sensors
 CONNECTION_CO2 = 1
@@ -261,9 +271,6 @@ CONNECTION_A4 = 1
 UART_ESTABLISHED = 1
 LORA_ESTABLISHED = 1
 I2C_ESTABLISHED = 1
-
-# maximum number of values in queue
-MAX_QUEUE = const(10)
 
 # initial values for scd and AMs
 am_temp = 0
@@ -281,16 +288,55 @@ cb_lora_recv = False
 msg_interval = 30000  # 30 sec
 retx_interval = 5000  # 5 sec
 
+# init process variables
+retransmit_count = 0
+packet_no = 0
+
+# msg init
+msg = ""
+
+# rcv_msg init
+rcv_msg = []
+
 # msg for log file
 start_msg = "Boot process was successfull! Starting initialization..."
 status_msg = "Current connection variables (CO2, CO, O2, BMP, AMs): "
 
 # packing format
-_pkng_frmt = ">13f3HI"
+_pkng_frmt = ">13f2H2I"
+
+# unique node id for sender identification
 SENSORBOARD_ID = get_node_id()
 
 # allcoate emergeny buffer for interrupt signals
 micropython.alloc_emergency_exception_buf(100)
+
+# thresshold limits
+THRESHOLDS = ((0.0, 3000.0),
+              (0.0, 20.0),
+              (18, 23.0),
+              (950.0, 1040.0),
+              (18.0, 30.0, 0.0, 100.0))
+
+# connectionvaribles for each sensor
+CONNECTION_VAR = [CONNECTION_CO2, CONNECTION_CO,
+                  CONNECTION_O2, CONNECTION_BMP,
+                  CONNECTION_A1, CONNECTION_A2,
+                  CONNECTION_A3, CONNECTION_A4]
+
+# list with all sensor names for log purposes
+SENSORS_LIST = ("CO2", "CO", "O2", "BMP", "AM1", "AM2", "AM3", "AM4")
+
+# functions for taking sensor readings
+FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp,
+            measure_am1, measure_am2, measure_am3, measure_am4)
+
+# create Timers
+timer0 = Timer(0)
+timer1 = Timer(1)
+
+# sensor readings list init
+SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 # ------------------------ establish connections ------------------------------
 # establish UART connection
@@ -318,7 +364,8 @@ try:
     write_to_log("LoRa established", str(time.mktime(time.localtime())))
 except Exception:
     LORA_ESTABLISHED = 0
-    write_to_log("LoRa and SPI init failed", str(time.mktime(time.localtime())))
+    write_to_log("SPI and LoRa init failed",
+                 str(time.mktime(time.localtime())))
 
 # create sensorobjects
 try:
@@ -378,46 +425,17 @@ except Exception:
     CONNECTION_A4 = 0
     write_to_log("AM4 failed", str(time.mktime(time.localtime())))
 
-
-# thresshold limits
-THRESHOLD_LIMITS = ((0.0, 3000.0), (0.0, 20.0), (18, 23.0), (950.0, 1040.0),
-                    (18.0, 30.0, 0.0, 100.0))
-
-# connectionvaribles for each sensor
-CONNECTION_VAR = [CONNECTION_CO2, CONNECTION_CO,
-                  CONNECTION_O2, CONNECTION_BMP,
-                  CONNECTION_A1, CONNECTION_A2,
-                  CONNECTION_A3, CONNECTION_A4]
-
-# list with all sensor names for log purposes
-SENSORS_LIST = ("CO2", "CO", "O2", "BMP", "AM1", "AM2", "AM3", "AM4")
-
-# functions for taking sensor readings
-FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp,
-            measure_am1, measure_am2, measure_am3, measure_am4)
-
-# create Timers
-timer0 = Timer(0)
-timer1 = Timer(1)
-
-# set callback for LoRa (recv as scheduled IR)
-lora.on_recv(cb_lora)
-
-# sensor readings list init
-SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-
 # ------------------------ infinite loop execution ----------------------------
-msg = ""  # msg init
-rcv_msg = []  # rcv_msg init
-
 # initialize timer
 # Timer for sending msgs with measurement values + timestamp + crc
 timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
 write_to_log("msg sending timer activated", str(time.mktime(time.localtime())))
 
+# set callback for LoRa (recv as scheduled IR)
+lora.on_recv(cb_lora)
+
 # get the start time of the script in seconds wrt the localtime
 start_time = time.mktime(time.localtime())
-retransmit_count = 0
 
 write_to_log("start measuring", str(time.mktime(time.localtime())))
 
@@ -434,15 +452,15 @@ while True:
         try:
             if i < 4:
                 # readings for CO2, CO, O2 and pressure are taken.
-                micropython.schedule(func_call, i)  # maybe executes to late for next statement?
-                if not (THRESHOLD_LIMITS[i][0] <= SENSOR_DATA[i] <= THRESHOLD_LIMITS[i][1]):
+                micropython.schedule(func_call, i)
+                if not THRESHOLDS[i][0] <= SENSOR_DATA[i] <= THRESHOLDS[i][1]:
                     LIMITS_BROKEN = 1
             else:
                 # AM2301 readings (involves 2 values)
                 micropython.schedule(func_call, i)
-                if not (THRESHOLD_LIMITS[4][0] <= am_temp <= THRESHOLD_LIMITS[4][1]):
+                if not THRESHOLDS[4][0] <= am_temp <= THRESHOLDS[4][1]:
                     LIMITS_BROKEN = 1
-                if not (THRESHOLD_LIMITS[4][2] <= am_hum <= THRESHOLD_LIMITS[4][3]):
+                if not THRESHOLDS[4][2] <= am_hum <= THRESHOLDS[4][3]:
                     LIMITS_BROKEN = 1
                 SENSOR_DATA[j] = am_temp
                 SENSOR_DATA[j+1] = am_hum
@@ -469,47 +487,57 @@ while True:
                            SENSOR_DATA[5], SENSOR_DATA[6], SENSOR_DATA[7],
                            SENSOR_DATA[8], SENSOR_DATA[9], SENSOR_DATA[10],
                            SENSOR_DATA[11], rssi, SENSOR_STATUS, LIMITS_BROKEN,
-                           0, SENSORBOARD_ID)  # current Sensorreadings
+                           packet_no, SENSORBOARD_ID)
         msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
-        msg += ustruct.pack(">L", crc32(0, msg, 66))  # add 32-bit crc to the msg
+        msg += ustruct.pack(">L", crc32(0, msg, 68))  # add 32-bit crc
 
         micropython.schedule(lora_rcv_exec, 0)  # process received msgs
     except Exception as e:
         write_to_log("error msg packing: {}".format(e), str(current_time))
 
     if LORA_ESTABLISHED:
-        if LIMITS_BROKEN:
+        if LIMITS_BROKEN:  # sends imidiately if threshold limits are broken
             try:
                 add_to_que(msg, current_time)
-                lora.send(msg)  # Sends imidiately if threshold limits are broken.
+                lora.send(msg)
                 lora.recv()
-                write_to_log("PKT sent, Limits broken",
+                packet_no += 1
+                write_to_log("PKT {} sent, Limits broken".format(packet_no),
                              str(time.mktime(time.localtime())))
             except Exception as e:
-                write_to_log("error limits broken: {}".format(e), str(current_time))
+                write_to_log("error limits broken: {}".format(e),
+                             str(current_time))
         micropython.schedule(lora_rcv_exec, 0)  # process received msgs
         if cb_30_done:  # send the messages every 30 seconds
             try:
                 add_to_que(msg, current_time)
                 lora.send(que[0][0])
                 lora.recv()
-                write_to_log("PKT sent", str(time.mktime(time.localtime())))
+                packet_no += 1
+                write_to_log("PKT {} sent".format(packet_no),
+                             str(time.mktime(time.localtime())))
                 start_time = current_time
-                timer1.init(period=retx_interval, mode=Timer.PERIODIC, callback=cb_retrans)
-                timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
- 
-                # randomize the msg interval to avoid continous collision of packets
+                timer1.init(period=retx_interval,
+                            mode=Timer.PERIODIC,
+                            callback=cb_retrans)
+                timer0.init(period=msg_interval,
+                            mode=Timer.ONE_SHOT,
+                            callback=cb_30)
+
+                # randomize the msg interval to avoid
+                # continous collision of packets
                 if random.random() >= 0.4:
-                    # select time randomly with steps of 1000ms, because the max on
-                    # air time is 123ms and 390ms for SF7 and SF9 resp.
+                    # select time randomly with steps of 1000ms, because the
+                    # max on air time is 123ms and 390ms for SF7 and SF9 resp.
                     msg_interval = random.randrange(20000, 40000, 1000)
                     # select random time interval with step size of 1 sec
                     retx_interval = random.randrange(2000, 10000, 1000)
             except Exception as e:
-                write_to_log("error cb_30_done: {}".format(e), str(current_time))
-            # reset timer booleans
+                write_to_log("error cb_30_done: {}".format(e),
+                             str(current_time))
+            # reset timer boolean
             cb_30_done = False
-        elif cb_retrans_done:  # retransmit every 5 seconds for pkts with no ack
+        elif cb_retrans_done:  # retransmit every 5 secs for pkts with no ack
             cb_retrans_done = False
             try:
                 retransmit_count += 1
@@ -522,4 +550,5 @@ while True:
                     timer1.deinit()
                     retransmit_count = 0
             except Exception as e:
-                write_to_log("error retransmit: {}".format(e), str(current_time))
+                write_to_log("error retransmit: {}".format(e),
+                             str(current_time))

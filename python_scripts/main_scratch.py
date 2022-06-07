@@ -1,7 +1,7 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika Unnikrishnan, Saurabh Band
-# date: 25.05.2022
-# function:
+# date: 07.06.2022
+# function: Central LoRa receiver. Pushes data via MQTT to the Backend.
 # -------------------------------------------------------------------------------
 
 from datetime import datetime
@@ -14,6 +14,8 @@ import time
 import struct
 import numpy as np
 import pickle
+
+# ------------------------ function declaration -------------------------------
 
 
 def read_config(path="config"):
@@ -229,6 +231,7 @@ def create_timestamp(tmstmp):
             tmstmp.tm_min, tmstmp.tm_sec]
 
 
+# ------------------------ constants and variables ----------------------------
 # Tuple with MQTT topics
 _TOPICS = ("board{id_val}/co2_scd", "board{id_val}/co",
            "board{id_val}/o2", "board{id_val}/amb_press",
@@ -248,27 +251,38 @@ _Limits_broken = "board{id_val}/limits"
 number_of_sensors = 8
 length_values = 13  # 8 sensors. Last 4 put out 2 values each + rssi
 
+# Boolean for checking if the timer is done.
 cb_timer_done = False
-
-# board_ids based on the manuall numbering of the boards (to map to old ids)
-board_ids = read_config()
-sensorboard_list = dict()
-packet_list = dict()
-for i in range(len(board_ids)):
-    sensorboard_list[board_ids[i]] = 0
-for i in range(len(board_ids)):
-    packet_list[board_ids[i]] = 0
 
 # Maximum of heartbeats that are allowed to be missed.
 MAX_COUNT = 3
 
+# board_ids based on the manuall numbering of the boards (to map to old ids)
+board_ids = read_config()
+sensorboard_list = dict()
+for i in range(len(board_ids)):
+    sensorboard_list[board_ids[i]] = 0
+
+# packet counter for each board
+packet_list = []
+for i in range(len(board_ids)):
+    packet_list.append([])
+
+# counts the packets missed
+packets_missed = dict()
+for i in range(len(board_ids)):
+    packets_missed[board_ids[i]] = 0
+
+# counts retransmitted packets
+retransmitted_packets = dict()
+for i in range(len(board_ids)):
+    retransmitted_packets[board_ids[i]] = 0
+
 # Holds all values for the working/not working sensors.
-sensor_connections = [[0, 0, 0, 0, 0, 0, 0, 0],
-                      [0, 0, 0, 0, 0, 0, 0, 0],
-                      [0, 0, 0, 0, 0, 0, 0, 0],
-                      [0, 0, 0, 0, 0, 0, 0, 0],
-                      [0, 0, 0, 0, 0, 0, 0, 0],
-                      [0, 0, 0, 0, 0, 0, 0, 0]]
+connections = [0, 0, 0, 0, 0, 0, 0, 0]
+sensor_connections = []
+for i in range(len(board_ids)):
+    sensor_connections.append(connections)
 
 # Setting up MQTT
 MQTT_SERVER = "192.168.30.17"
@@ -278,12 +292,13 @@ CLIENT = mqtt.Client()
 timer_interval = 90
 
 # Connect WIFI and MQTT
-MESSAGE_LENGTH = 70  # 58+4+4+4
-_pkng_frmt = ">13f3HI"
+MESSAGE_LENGTH = 72
+_pkng_frmt = ">13f2H2I"
 
 lora_init()
 connect_mqtt()
 
+# ------------------------ infinite loop execution ----------------------------
 print("Receiving Packets......")
 # Start of loop
 threading.Timer(timer_interval, cb).start()
@@ -292,40 +307,51 @@ invalid_crcs = 0
 while True:
     recv_msg, prssi = receive()
     if len(recv_msg) == MESSAGE_LENGTH:
-        if struct.unpack(">L", recv_msg[-4:])[0] != crc32(0, recv_msg[:-4], 66):
+        received_crc = struct.unpack(">L", recv_msg[-4:])[0]
+        if received_crc != crc32(0, recv_msg[:-4], MESSAGE_LENGTH-4):
             print("Invalid CRC32 in msg")
-            #timestamp = list(struct.unpack(">L", recv_msg[-8:-4]))
             receiver_timestamp = time.localtime()
             rx_datetime = create_timestamp(receiver_timestamp)
             write_to_log_time("Invalid CRC32 in msg: ",
-                              str(0),
+                              "N/A",
                               str(rx_datetime))
             invalid_crcs += 1
         else:
             # exclude timstamp and crc (8 bytes) to get msg
             values = struct.unpack(_pkng_frmt, recv_msg[:-8])
+            id_received = values[16]
+            packet_no_received = values[15]
             timestamp = list(struct.unpack(">L", recv_msg[-8:-4]))
             receiver_timestamp = time.localtime()
             rx_datetime = create_timestamp(receiver_timestamp)
 
             # send ACK
-            send(str(values[16]) + "," + str(timestamp[0]))
+            send(str(id_received) + "," + str(timestamp[0]))
 
-            # add sensorboard to list for heartbeat count
-            if values[16] not in list(sensorboard_list.keys()):
-                sensorboard_list[values[16]] = 1
-                packet_list[values[16]] = 1
+            # add heartbeat
+            sensorboard_list[id_received] += 1
+
+            # check if packet is a retransmission
+            old_id = map_board_ids(id_received) - 1
+            if packet_no_received in packet_list[old_id]:
+                packet_list[old_id].remove(packet_no_received)
+                retransmitted_packets[id_received] += 1
             else:
-                sensorboard_list[values[16]] += 1
-                try:
-                    packet_list[values[16]] += 1
-                except Exception:
-                    packet_list[values[16]] = 0
+                packet_list[old_id].append(packet_no_received)
+
+            # check if packets were lost
+            packets_yet_received = len(packet_list[old_id]) - 1
+            if packets_yet_received == packet_no_received:
+                packets_missed[id_received] = 0
+            elif packets_yet_received < packet_no_received:
+                lost_packets = packet_no_received - packets_yet_received
+                packets_missed[id_received] = lost_packets
+
             # save data for log and later visualization
             all_values += [values +
                            tuple(timestamp) +
                            tuple(rx_datetime) +
-                           tuple([packet_list[values[16]]]) +
+                           tuple(packet_list) +
                            tuple([invalid_crcs])]
             write_to_log_time("Received ", str(timestamp[0]), str(rx_datetime))
 
@@ -348,7 +374,8 @@ while True:
                       str(values[16]) + " ----------------")
             print("Sent to MQTT")
     elif len(recv_msg) == 16:
-        if struct.unpack(">L", recv_msg[-4:])[0] == crc32(0, recv_msg[:-4], 12):
+        received_crc_pbr = struct.unpack(">L", recv_msg[-4:])[0]
+        if received_crc_pbr == crc32(0, recv_msg[:-4], 12):
             values = struct.unpack(">3f", recv_msg[:-4])
             print("bit value: " + str(values[0]) +
                   " voltage (mV): " + str(values[1]) +
@@ -363,12 +390,16 @@ while True:
     # checks if any boards are not working
     if cb_timer_done:
         try:
-            print(str(invalid_crcs))
+            print("Invalid CRCs since last start: " + str(invalid_crcs))
             for each_board in list(sensorboard_list.keys()):
                 print(str(each_board) + ":")
                 old_board_id = map_board_ids(each_board)
                 signal_count = sensorboard_list[each_board]
-                print("packet count:", packet_list[each_board])
+                print("packets received: " + str(len(packet_list)))
+                print("packets missed: ",
+                      packets_missed[each_board])
+                print("packets retransmitted: ",
+                      retransmitted_packets[each_board])
                 if signal_count < 1:
                     print("Board {} not working".format(old_board_id))
                     CLIENT.publish(topic=_Failed_times.format(
