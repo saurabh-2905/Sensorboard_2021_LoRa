@@ -4,7 +4,7 @@
 ### Usage:
 ### Write all relevant board ids in the first line,
 ### separated by ',' without any blanks in between, but no
-### more than four board ids!
+### more than six board ids!
 ### The given order of the board ids will be the order of the board ids.
 ### E.g. for the four board ids: 3982231425,94420780,2750291925,3903892222
 ### the board with the id 3982231425 will be board number 1 and so on.
