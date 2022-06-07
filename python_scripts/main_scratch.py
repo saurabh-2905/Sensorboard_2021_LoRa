@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika Unnikrishnan, Saurabh Band
-# date: 13.05.2022
+# date: 25.05.2022
 # function:
 # -------------------------------------------------------------------------------
 
@@ -22,7 +22,7 @@ def read_config(path="config"):
     """
     with open("config", "r") as f:
         config = f.read()
-    config = config.split('\n')[0].split(',')
+    config = config.split("\n")[0].split(",")
     for i in range(len(config)):
         config[i] = int(config[i])
     return config
@@ -67,9 +67,12 @@ def receive():
     """
     lora.changemode(1)
     while True:
-        msg = lora.recv()[0]
-        if msg:
-            return msg
+        try:
+            msg, prssi = lora.recv()[0:4:3]
+            if msg:
+                return (msg, prssi)
+        except Exception:
+            pass
 
 
 def send(msg):
@@ -108,7 +111,7 @@ def publish_failed_sensors(id_val_index):
     """
     id_val = str(id_val_index)
     i = 0
-    for j in range(length_failed_sensors):
+    for j in range(number_of_sensors):
         if i < 4:
             if sensor_connections[id_val_index-1][j]:
                 if i == 0:
@@ -137,7 +140,7 @@ def check_sensors(val, id_val):
     """
     Checks if any Sensors are sending invalid data, hence they are broken.
     """
-    for i in range(length_failed_sensors):
+    for i in range(number_of_sensors):
         if val & 1:
             sensor_connections[id_val][i] = 1  # sensor faulty
             val = val >> 1
@@ -165,36 +168,33 @@ def send_mqtt(values):
     """
     connect_mqtt()
     # get the integer board id from the hardware board id
-    id_val_index = map_board_ids(values[15])
+    id_val_index = map_board_ids(values[16])
     id_val = str(id_val_index)
-    publish_limits_broken(id_val_index, values[13])
+    publish_limits_broken(id_val_index, values[14])
     if not values[length_values]:   # check the sensor status bit
         for j in range(length_values):
-            if j < 4:
-                CLIENT.publish(topic=_TOPICS[j].format(id_val=id_val),
-                               payload=str(values[j]))
-            elif j > 3:
-                CLIENT.publish(topic=_TOPICS[j].format(id_val=id_val),
-                               payload=str(values[j]))
+            CLIENT.publish(topic=_TOPICS[j].format(id_val=id_val),
+                           payload=str(values[j]))
     else:
         # subtract 1 from id_val_index since board number start
         # from 1, but indexing starts from 0
         check_sensors(values[length_values], id_val_index-1)
         i = 0
-        for j in range(length_failed_sensors):
+        for j in range(number_of_sensors):
             if i < 4:
                 if not sensor_connections[id_val_index-1][j]:
                     CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val),
                                    payload=str(values[i]))
                 i += 1
             else:
-                # if am value equals 200 that indicates a wrong reading
                 if not sensor_connections[id_val_index-1][j]:
                     CLIENT.publish(topic=_TOPICS[i].format(id_val=id_val),
                                    payload=str(values[i]))
                     CLIENT.publish(topic=_TOPICS[i+1].format(id_val=id_val),
                                    payload=str(values[i+1]))
                 i += 2
+        CLIENT.publish(topic=_TOPICS[12].format(id_val=id_val),
+                       payload=str(values[12]))
         publish_failed_sensors(id_val_index)
 
 
@@ -235,7 +235,8 @@ _TOPICS = ("board{id_val}/co2_scd", "board{id_val}/co",
            "board{id_val}/temp1_am", "board{id_val}/humid1_am",
            "board{id_val}/temp2_am", "board{id_val}/humid2_am",
            "board{id_val}/temp3_am", "board{id_val}/humid3_am",
-           "board{id_val}/temp4_am", "board{id_val}/humid4_am")
+           "board{id_val}/temp4_am", "board{id_val}/humid4_am",
+           "board{id_val}/rssi")
 # Topic for the Sensorboardstatus
 _Failed_times = "board{id_val}/active_status"
 # Topic for the Sensorstatus
@@ -244,16 +245,19 @@ _Failed_sensor = "sensor{id_val}_stat_"
 _Limits_broken = "board{id_val}/limits"
 
 # Constants depending on the msg structure
-length_failed_sensors = 8
-length_values = 12  # 12 sensor readings+sensor board status+limits broken+heartbeat+sensor id
+number_of_sensors = 8
+length_values = 13  # 8 sensors. Last 4 put out 2 values each + rssi
 
 cb_timer_done = False
 
 # board_ids based on the manuall numbering of the boards (to map to old ids)
 board_ids = read_config()
 sensorboard_list = dict()
+packet_list = dict()
 for i in range(len(board_ids)):
     sensorboard_list[board_ids[i]] = 0
+for i in range(len(board_ids)):
+    packet_list[board_ids[i]] = 0
 
 # Maximum of heartbeats that are allowed to be missed.
 MAX_COUNT = 3
@@ -262,35 +266,41 @@ MAX_COUNT = 3
 sensor_connections = [[0, 0, 0, 0, 0, 0, 0, 0],
                       [0, 0, 0, 0, 0, 0, 0, 0],
                       [0, 0, 0, 0, 0, 0, 0, 0],
+                      [0, 0, 0, 0, 0, 0, 0, 0],
+                      [0, 0, 0, 0, 0, 0, 0, 0],
                       [0, 0, 0, 0, 0, 0, 0, 0]]
 
 # Setting up MQTT
-MQTT_SERVER = '192.168.30.17'
+MQTT_SERVER = "192.168.30.17"
 CLIENT = mqtt.Client()
 
 # interval for checking if the board are working
 timer_interval = 90
 
 # Connect WIFI and MQTT
-MESSAGE_LENGTH = 66  # 58+4+4
-_pkng_frmt = '>12f3HI'
+MESSAGE_LENGTH = 70  # 58+4+4+4
+_pkng_frmt = ">13f3HI"
 
 lora_init()
 connect_mqtt()
 
-print('Receiving Packets......')
+print("Receiving Packets......")
 # Start of loop
 threading.Timer(timer_interval, cb).start()
 all_values = []
+invalid_crcs = 0
 while True:
-    recv_msg = receive()
-    if len(recv_msg) == MESSAGE_LENGTH:  # to differentiate between heartbeat and msg
-        if struct.unpack(">L", recv_msg[-4:])[0] != crc32(0, recv_msg[:-4], 62):
-            print('Invalid CRC32 in msg')
-            timestamp = list(struct.unpack(">L", recv_msg[-8:-4]))
+    recv_msg, prssi = receive()
+    if len(recv_msg) == MESSAGE_LENGTH:
+        if struct.unpack(">L", recv_msg[-4:])[0] != crc32(0, recv_msg[:-4], 66):
+            print("Invalid CRC32 in msg")
+            #timestamp = list(struct.unpack(">L", recv_msg[-8:-4]))
             receiver_timestamp = time.localtime()
             rx_datetime = create_timestamp(receiver_timestamp)
-            write_to_log_time('Invalid CRC32 in msg: ', str(timestamp[0]), str(rx_datetime))
+            write_to_log_time("Invalid CRC32 in msg: ",
+                              str(0),
+                              str(rx_datetime))
+            invalid_crcs += 1
         else:
             # exclude timstamp and crc (8 bytes) to get msg
             values = struct.unpack(_pkng_frmt, recv_msg[:-8])
@@ -299,20 +309,30 @@ while True:
             rx_datetime = create_timestamp(receiver_timestamp)
 
             # send ACK
-            send(str(values[15]) + ',' + str(timestamp[0]))
-
-            # save data for log and later visualization
-            all_values += [values + tuple(timestamp) + tuple(rx_datetime)]
-            write_to_log_time("Received ", str(timestamp[0]), str(rx_datetime))
+            send(str(values[16]) + "," + str(timestamp[0]))
 
             # add sensorboard to list for heartbeat count
-            if values[15] not in list(sensorboard_list.keys()):
-                sensorboard_list[values[15]] = 1
+            if values[16] not in list(sensorboard_list.keys()):
+                sensorboard_list[values[16]] = 1
+                packet_list[values[16]] = 1
             else:
-                sensorboard_list[values[15]] += 1
+                sensorboard_list[values[16]] += 1
+                try:
+                    packet_list[values[16]] += 1
+                except Exception:
+                    packet_list[values[16]] = 0
+            # save data for log and later visualization
+            all_values += [values +
+                           tuple(timestamp) +
+                           tuple(rx_datetime) +
+                           tuple([packet_list[values[16]]]) +
+                           tuple([invalid_crcs])]
+            write_to_log_time("Received ", str(timestamp[0]), str(rx_datetime))
 
             value_list = list(values)
 
+            # Round values to visualize the actual
+            # data that goes to the backend
             for i in range(len(value_list)):
                 if i <= 3:
                     value_list[i] = round(value_list[i], 2)
@@ -320,34 +340,48 @@ while True:
                     value_list[i] = round(value_list[i], 1)
             try:
                 send_mqtt(value_list)
-                print(value_list, timestamp, create_timestamp(receiver_timestamp))
+                print(value_list,
+                      timestamp,
+                      create_timestamp(receiver_timestamp))
             except Exception:
-                print("---------------- UNKOWN_BOARD_ID: " + str(values[15]) + " ----------------")
+                print("---------------- UNKOWN_BOARD_ID: " +
+                      str(values[16]) + " ----------------")
             print("Sent to MQTT")
+    elif len(recv_msg) == 16:
+        if struct.unpack(">L", recv_msg[-4:])[0] == crc32(0, recv_msg[:-4], 12):
+            values = struct.unpack(">3f", recv_msg[:-4])
+            print("bit value: " + str(values[0]) +
+                  " voltage (mV): " + str(values[1]) +
+                  " pH Value: " + str(values[2]))
+            connect_mqtt()
+            CLIENT.publish(topic="pbr/ph1", payload=str(values[2]))
     else:
-        write_to_log_time("Message that does no belong to the system: {}".format(len(recv_msg)),
-                          str(timestamp[0]), str(rx_datetime))
+        write_to_log_time(
+            "Message that does no belong to the system: {}".format(
+                len(recv_msg)), str(timestamp[0]), str(rx_datetime))
 
     # checks if any boards are not working
     if cb_timer_done:
         try:
+            print(str(invalid_crcs))
             for each_board in list(sensorboard_list.keys()):
-                print(each_board)
+                print(str(each_board) + ":")
                 old_board_id = map_board_ids(each_board)
                 signal_count = sensorboard_list[each_board]
+                print("packet count:", packet_list[each_board])
                 if signal_count < 1:
-                    print('Board {} not working'.format(old_board_id))
-                    CLIENT.publish(topic=_Failed_times.format(id_val=old_board_id),
-                                   payload="10000")
+                    print("Board {} not working".format(old_board_id))
+                    CLIENT.publish(topic=_Failed_times.format(
+                        id_val=old_board_id), payload="10000")
                 else:
-                    print('signal_count:', signal_count)
-                    CLIENT.publish(topic=_Failed_times.format(id_val=old_board_id),
-                                   payload="1000")
+                    print("signal_count:", signal_count)
+                    CLIENT.publish(topic=_Failed_times.format(
+                        id_val=old_board_id), payload="1000")
                 sensorboard_list[each_board] = 0
-        except Exception:
-            pass
+        except Exception as e:
+            print(str(e))
         # store the values for visualization
-        with open('sensor_values_raspbery.pkl', 'wb') as f:
+        with open("sensor_values_raspbery.pkl", "wb") as f:
             pickle.dump(all_values, f)
         cb_timer_done = False
         threading.Timer(timer_interval, cb).start()
