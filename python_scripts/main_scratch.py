@@ -284,6 +284,10 @@ sensor_connections = []
 for i in range(len(board_ids)):
     sensor_connections.append(connections)
 
+restarts = []
+for i in range(len(board_ids)):
+    sensor_connections.append(0)
+
 # Setting up MQTT
 MQTT_SERVER = "192.168.30.17"
 CLIENT = mqtt.Client()
@@ -331,13 +335,16 @@ while True:
             # add heartbeat
             sensorboard_list[id_received] += 1
 
-            # check if packet is a retransmission
             old_id = map_board_ids(id_received) - 1
+            if packet_no_received == 0 and len(packet_list[old_id]) != 0:
+                packet_list[old_id] = []
+                restarts[old_id] += 1
+
+            # check if packet is a retransmission
             if packet_no_received in packet_list[old_id]:
                 packet_list[old_id].remove(packet_no_received)
                 retransmitted_packets[id_received] += 1
-            else:
-                packet_list[old_id].append(packet_no_received)
+            packet_list[old_id].append(packet_no_received)
 
             # check if packets were lost
             packets_yet_received = len(packet_list[old_id]) - 1
@@ -391,15 +398,17 @@ while True:
     if cb_timer_done:
         try:
             print("Invalid CRCs since last start: " + str(invalid_crcs))
+            i = 0
             for each_board in list(sensorboard_list.keys()):
                 print(str(each_board) + ":")
                 old_board_id = map_board_ids(each_board)
                 signal_count = sensorboard_list[each_board]
-                print("packets received: " + str(len(packet_list)))
+                print("packets received: " + str(len(packet_list[i])))
                 print("packets missed: ",
                       packets_missed[each_board])
                 print("packets retransmitted: ",
                       retransmitted_packets[each_board])
+                print("restarts: ", restarts[i])
                 if signal_count < 1:
                     print("Board {} not working".format(old_board_id))
                     CLIENT.publish(topic=_Failed_times.format(
@@ -409,6 +418,7 @@ while True:
                     CLIENT.publish(topic=_Failed_times.format(
                         id_val=old_board_id), payload="1000")
                 sensorboard_list[each_board] = 0
+                i += 1
         except Exception as e:
             print(str(e))
         # store the values for visualization
