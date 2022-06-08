@@ -286,7 +286,7 @@ for i in range(len(board_ids)):
 
 restarts = []
 for i in range(len(board_ids)):
-    sensor_connections.append(0)
+    restarts.append(0)
 
 # Setting up MQTT
 MQTT_SERVER = "192.168.30.17"
@@ -359,6 +359,8 @@ while True:
                            tuple(timestamp) +
                            tuple(rx_datetime) +
                            tuple(packet_list) +
+                           tuple(retransmitted_packets) +
+                           tuple(restarts) +
                            tuple([invalid_crcs])]
             write_to_log_time("Received ", str(timestamp[0]), str(rx_datetime))
 
