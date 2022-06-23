@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # authors: Florian Stechmann, Saurabh Band, Malavika Unnikrishnan
-# date: 09.06.2022
+# date: 23.06.2022
 # function: Code for esp32 board with lora module and sd card reader.
 #           Needed SD Card format is W95 FAT32 (LBA).
 # -------------------------------------------------------------------------------
@@ -257,24 +257,23 @@ def lora_rcv_exec(p):
         for i in range(len(rcv_msg)):
             msg = rcv_msg[i]
             try:
-                try:
-                    received_crc = ustruct.unpack(">L", msg[-4:])[0]
-                    if received_crc == crc32(0, msg[:-4], MESSAGE_LENGTH-4):
-                        values = ustruct.unpack(_pkng_frmt, msg[:-8])
-                        id_received = values[16]
-                        sensorboard_list[id_received] += 1
-                except Exception:
-                    try:
-                        recv_msg = msg.decode()
-                        board_id, timestamp = recv_msg.split(',')
+                received_crc = ustruct.unpack(">L", msg[-4:])[0]
+                if received_crc == crc32(0, msg[:-4], MESSAGE_LENGTH-4):
+                    recv_msg = ustruct.unpack(_pkng_frmt_ack, msg[:-4])
+                    board_id = recv_msg[2]
+                    if recv_msg[0] == 0:
+                        timestamp = recv_msg[3]
                         if int(board_id) == SENSORBOARD_ID:
                             for each_pkt in que:
                                 if each_pkt[1] == int(timestamp):
                                     que.remove(each_pkt)
-                        write_to_log("Lora msg process",
-                                     str(time.mktime(time.localtime())))
-                    except Exception:
-                        pass
+                    elif recv_msg[0] == 1:
+                        if recv_msg[4] == 1 and recv_msg[1] in board_ids:
+                            sensorboard_list[recv_msg[1]] += 1
+                        elif recv_msg[4] == 0 and recv_msg[1] in board_ids:
+                            sensorboard_list[recv_msg[1]] = 0
+                    write_to_log("Lora msg process",
+                                 str(time.mktime(time.localtime())))
             except Exception as e:
                 write_to_log("Lora msg process failure: {}".format(e),
                              str(time.mktime(time.localtime())))
@@ -346,6 +345,9 @@ status_msg = "Current connection variables (CO2, CO, O2, BMP, AMs): "
 
 # packing format
 _pkng_frmt = ">13f2H2I"
+
+# package format for ack
+_pkng_frmt_ack = ">3I2H"  # 16 bytes for ack
 
 # unique node id for sender identification
 SENSORBOARD_ID = get_node_id()
