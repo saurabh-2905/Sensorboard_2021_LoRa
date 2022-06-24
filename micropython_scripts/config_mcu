@@ -1,0 +1,15 @@
+3982231425,94420780
+### last edited: 24.06.2022
+###
+### Usage:
+### Put in the first line all boards for that this board shall
+### act as a redundant one.
+### 
+### Current valid board ids:
+### board1 = 3982231425
+### board2 = 94420780
+### board3 = 2750291925
+### board4 = 3903892222
+### board0a = 2628075089 (EVAL Board)
+### board5 = 301920073
+### board6 = 2864645979

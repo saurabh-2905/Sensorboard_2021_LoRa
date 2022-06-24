@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika Unnikrishnan, Saurabh Band
-# date: 23.06.2022
+# date: 24.06.2022
 # function: Central LoRa receiver. Pushes data via MQTT to the Backend.
 # -------------------------------------------------------------------------------
 
@@ -303,7 +303,7 @@ MESSAGE_LENGTH = 72
 _pkng_frmt = ">13f2H2I"
 
 # package format for ack
-_pkng_frmt_ack = ">3I2H"  # 16 bytes for ack
+_pkng_frmt_ack = ">2H3I"  # 16 bytes for ack
 
 # ------------------------ general startup function calls ---------------------
 
@@ -339,7 +339,7 @@ while True:
             rx_datetime = create_timestamp(receiver_timestamp)
 
             # send ACK
-            ack_msg = struct.pack(_pkng_frmt_ack, 0, 0,
+            ack_msg = struct.pack(_pkng_frmt_ack, 0, 0, 0,
                                   id_received, timestamp[0])
             ack_msg += struct.pack(">L", crc32(0, ack_msg, 16))
             send(ack_msg)
@@ -347,6 +347,8 @@ while True:
             # add heartbeat
             sensorboard_list[id_received] += 1
 
+            # only proceed with msg processing if the msg is no
+            # heartbeat msg
             if not values[0] == -1.0:
                 old_id = map_board_ids(id_received) - 1
                 if packet_no_received == 0 and len(packet_list[old_id]) != 0:
@@ -371,7 +373,7 @@ while True:
                 all_values += [values +
                                tuple(timestamp) +
                                tuple(rx_datetime) +
-                               tuple(packet_list) +
+                               tuple(len(packet_list[id_received])) +
                                tuple(retransmitted_packets) +
                                tuple(restarts) +
                                tuple([invalid_crcs])]
@@ -388,6 +390,8 @@ while True:
                     elif i <= 11:
                         value_list[i] = round(value_list[i], 1)
             try:
+                # only publish values to the mqtt broker if it is no
+                # heartbeat msg
                 if not values[0] == -1.0:
                     send_mqtt(value_list)
                     print("Sent to MQTT")
@@ -421,20 +425,24 @@ while True:
                     print("Board {} not working".format(old_board_id))
                     CLIENT.publish(topic=_Failed_times.format(
                         id_val=old_board_id), payload="10000")
+                    # send a msg for the not working board (each_board)
+                    # to all boards registered as redundant.
+                    # The redundant boards will decide if they go back to
+                    # normal mode or stay in redundant mode
                     for i in range(len(redundant_ids)):
-                        redundant_msg = struct.pack(_pkng_frmt_ack, 1,
+                        redundant_msg = struct.pack(_pkng_frmt_ack, 1, 1,
                                                     each_board,
-                                                    redundant_ids[i],
-                                                    0, 1)
+                                                    redundant_ids[i], 0)
                         redundant_msg += struct.pack(
                             ">L", crc32(0, redundant_msg, 16))
                         send(redundant_msg)
                 else:
+                    # send a msg to all boards that are registered as redundant
+                    # boards inidicating that the board (each_board) is working
                     for i in range(len(redundant_ids)):
-                        redundant_msg = struct.pack(_pkng_frmt_ack, 1,
+                        redundant_msg = struct.pack(_pkng_frmt_ack, 1, 0,
                                                     each_board,
-                                                    redundant_ids[i],
-                                                    0, 1)
+                                                    redundant_ids[i], 0)
                         redundant_msg += struct.pack(
                             ">L", crc32(0, redundant_msg, 16))
                         send(redundant_msg)

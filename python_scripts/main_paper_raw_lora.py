@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika Unnikrishnan, Saurabh Band
-# date: 21.06.2022
+# date: 24.06.2022
 # function: Central LoRa receiver. Pushes data via MQTT to the Backend.
 # -------------------------------------------------------------------------------
 
@@ -18,6 +18,14 @@ import pickle
 # ------------------------ function declaration -------------------------------
 
 
+def log_data(msg):
+    """
+    logs data for later visualization
+    """
+    with open("data_log", "a") as f:
+        f.write(msg)
+
+
 def read_config(path="config"):
     """
     Reads the config file, to get the relevant board ids.
@@ -25,9 +33,12 @@ def read_config(path="config"):
     with open("config", "r") as f:
         config = f.read()
     config = config.split("\n")[0].split(",")
+    redundant_c = config.split("\n")[2].split(",")
     for i in range(len(config)):
         config[i] = int(config[i])
-    return config
+    for i in range(len(redundant_c)):
+        redundant_c[i] = int(redundant_c[i])
+    return config, redundant_c
 
 
 def write_to_log(msg):
@@ -258,7 +269,7 @@ cb_timer_done = False
 MAX_COUNT = 3
 
 # board_ids based on the manuall numbering of the boards (to map to old ids)
-board_ids = read_config()
+board_ids, redundant_ids = read_config()
 sensorboard_list = dict()
 for i in range(len(board_ids)):
     sensorboard_list[board_ids[i]] = 0
@@ -299,27 +310,8 @@ timer_interval = 90
 MESSAGE_LENGTH = 72
 _pkng_frmt = ">13f2H2I"
 
-# ------------------------ pbr constants --------------------------------------
-
-# PBR msg lengths
-pbr_msg_lengths = (52, 88, 124, 160)
-pbr_msg_decodings = (">9f2H2I", ">18f2H2I", ">27f2H2I", ">36f2H2I")
-
-# PBR topics
-_PBR_TOPICS = ("pbr1/ph", "pbr1/temp_l", "pbr1/do", "pbr1/od", "pbr1/co2",
-               "pbr1/o2", "pbr1/amb_press", "pbr1/rh", "pbr1/temp_g")
-
-# PBR status topic
-_PBR_STATUS = "pbr1/status"
-
-# number of pbr measurement values
-no_meas_pbr = 9
-
-# init signal count for pbr
-signal_count_pbr = 0
-
-# init counter pbr
-counter_pbr = False
+# package format for ack
+_pkng_frmt_ack = ">2H3I"  # 16 bytes for ack
 
 # ------------------------ general startup function calls ---------------------
 
@@ -360,89 +352,65 @@ while True:
             # add heartbeat
             sensorboard_list[id_received] += 1
 
-            if not values[0] == -1.0:
-                old_id = map_board_ids(id_received) - 1
-                if packet_no_received == 0 and len(packet_list[old_id]) != 0:
-                    packet_list[old_id] = []
-                    restarts[old_id] += 1
+            old_id = map_board_ids(id_received) - 1
+            if packet_no_received == 0 and len(packet_list[old_id]) != 0:
+                packet_list[old_id] = []
+                restarts[old_id] += 1
 
-                # check if packet is a retransmission
-                if packet_no_received in packet_list[old_id]:
-                    packet_list[old_id].remove(packet_no_received)
-                    retransmitted_packets[id_received] += 1
-                packet_list[old_id].append(packet_no_received)
+            # check if packet is a retransmission
+            if packet_no_received in packet_list[old_id]:
+                packet_list[old_id].remove(packet_no_received)
+                retransmitted_packets[id_received] += 1
+            packet_list[old_id].append(packet_no_received)
 
-                # check if packets were lost
-                packets_yet_received = len(packet_list[old_id]) - 1
-                if packets_yet_received == packet_no_received:
-                    packets_missed[id_received] = 0
-                elif packets_yet_received < packet_no_received:
-                    lost_packets = packet_no_received - packets_yet_received
-                    packets_missed[id_received] = lost_packets
+            # check if packets were lost
+            packets_yet_received = len(packet_list[old_id]) - 1
+            if packets_yet_received == packet_no_received:
+                packets_missed[id_received] = 0
+            elif packets_yet_received < packet_no_received:
+                lost_packets = packet_no_received - packets_yet_received
+                packets_missed[id_received] = lost_packets
 
-                # save data for log and later visualization
-                all_values += [values +
-                               tuple(timestamp) +
-                               tuple(rx_datetime) +
-                               tuple(len(packet_list[id_received])) +
-                               tuple(retransmitted_packets) +
-                               tuple(restarts) +
-                               tuple([invalid_crcs])]
-                write_to_log_time("Received ", str(timestamp[0]),
-                                  str(rx_datetime))
+            # save data for log and later visualization
+            all_values += [values +
+                           tuple(timestamp) +
+                           tuple(rx_datetime) +
+                           tuple(len(packet_list[id_received])) +
+                           tuple(retransmitted_packets) +
+                           tuple(restarts) +
+                           tuple([invalid_crcs])]
+            write_to_log_time("Received ", str(timestamp[0]),
+                              str(rx_datetime))
 
-                value_list = list(values)
+            value_list = list(values)
 
-                # Round values to visualize the actual
-                # data that goes to the backend
-                for i in range(len(value_list)):
-                    if i <= 3:
-                        value_list[i] = round(value_list[i], 2)
-                    elif i <= 11:
-                        value_list[i] = round(value_list[i], 1)
+            # log for data and status data for later evaluation
+            data = "D;" + str(value_list) + "\n"
+            log_data(data)
+
+            status_log = "S;" + str(id_received) + ";"
+            status_log += str(packets_missed[id_received]) + ";"
+            status_log += str(len(packet_list[id_received])) + ";"
+            status_log += str(retransmitted_packets[id_received]) + ";"
+            status_log += str(invalid_crcs) + "\n"
+            log_data(status_log)
+
+            # Round values to visualize the actual
+            # data that goes to the backend
+            for i in range(len(value_list)):
+                if i <= 3:
+                    value_list[i] = round(value_list[i], 2)
+                elif i <= 11:
+                    value_list[i] = round(value_list[i], 1)
             try:
-                if not values[0] == -1.0:
-                    send_mqtt(value_list)
-                    print("Sent to MQTT")
-                    print(value_list,
-                          timestamp,
-                          create_timestamp(receiver_timestamp))
+                send_mqtt(value_list)
+                print("Sent to MQTT")
+                print(value_list,
+                      timestamp,
+                      create_timestamp(receiver_timestamp))
             except Exception:
                 print("---------------- UNKOWN_BOARD_ID: " +
                       str(values[16]) + " ----------------")
-    elif len(recv_msg) in pbr_msg_lengths:
-        received_crc_pbr = struct.unpack(">L", recv_msg[-4:])[0]
-        length = len(recv_msg)
-        if received_crc_pbr == crc32(0, recv_msg[:-4], length):
-            # get correct decoding depending on msg length
-            for i in range(len(pbr_msg_decodings)):
-                if length == pbr_msg_lengths[i]:
-                    decoding = pbr_msg_decodings[i]
-
-            # send ACK
-            values = struct.unpack(decoding, recv_msg[:-8])
-            timestamp = list(struct.unpack(">L", recv_msg[-8:-4]))
-            id_received = values[len(values)-1]
-            send(str(id_received) + "," + str(timestamp[0]))
-
-            # send data to backend
-            connect_mqtt()
-            for i in range(length+1):
-                offset = no_meas_pbr*i
-                for j in range(len(_PBR_TOPICS)):
-                    CLIENT.publish(topic=_PBR_TOPICS[j],
-                                   payload=values[j+offset])
-
-            # print values
-            for i in range(len(values)):
-                values[i] = round(values[i], 2)
-            print(values)
-    elif len(recv_msg) == 12:
-        # hb msg
-        received_crc_pbr = struct.unpack(">L", recv_msg[-4:])[0]
-        length = len(recv_msg)
-        if received_crc_pbr == crc32(0, recv_msg[:-4], length):
-            signal_count_pbr += 1
     else:
         write_to_log_time(
             "Message that does no belong to the system: {}".format(
@@ -473,18 +441,6 @@ while True:
                         id_val=old_board_id), payload="1000")
                 sensorboard_list[each_board] = 0
                 i += 1
-
-                if not counter_pbr:
-                    counter_pbr = True
-                elif counter_pbr:
-                    if signal_count < 1:
-                        print("PBR Board not working")
-                        CLIENT.publish(topic=_PBR_STATUS, payload="10000")
-                    else:
-                        print("PBR signal count:", signal_count_pbr)
-                        CLIENT.publish(topic=_PBR_STATUS, payload="1000")
-                    signal_count_pbr = 0
-                    counter_pbr = False
         except Exception as e:
             print(str(e))
         # store the values for visualization
