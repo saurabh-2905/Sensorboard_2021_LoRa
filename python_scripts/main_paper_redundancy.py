@@ -18,11 +18,11 @@ import pickle
 # ------------------------ function declaration -------------------------------
 
 
-def read_config(path="config"):
+def read_config(path="config_redundant"):
     """
     Reads the config file, to get the relevant board ids.
     """
-    with open("config", "r") as f:
+    with open(path, "r") as f:
         config = f.read()
     config = config.split("\n")[0].split(",")
     redundant_c = config.split("\n")[2].split(",")

@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika Unnikrishnan, Saurabh Band
-# date: 21.06.2022
+# date: 27.06.2022
 # function: Central LoRa receiver. Pushes data via MQTT to the Backend.
 # -------------------------------------------------------------------------------
 
@@ -302,7 +302,7 @@ _pkng_frmt = ">13f2H2I"
 # ------------------------ pbr constants --------------------------------------
 
 # PBR msg lengths
-pbr_msg_lengths = (52, 88, 124, 160)
+pbr_msg_lengths = (56, 92, 128, 164)
 pbr_msg_decodings = (">9f2H2I", ">18f2H2I", ">27f2H2I", ">36f2H2I")
 
 # PBR topics
@@ -384,7 +384,7 @@ while True:
                 all_values += [values +
                                tuple(timestamp) +
                                tuple(rx_datetime) +
-                               tuple(len(packet_list[id_received])) +
+                               tuple([len(packet_list[old_id])]) +
                                tuple(retransmitted_packets) +
                                tuple(restarts) +
                                tuple([invalid_crcs])]
@@ -413,7 +413,7 @@ while True:
     elif len(recv_msg) in pbr_msg_lengths:
         received_crc_pbr = struct.unpack(">L", recv_msg[-4:])[0]
         length = len(recv_msg)
-        if received_crc_pbr == crc32(0, recv_msg[:-4], length):
+        if received_crc_pbr == crc32(0, recv_msg[:-4], length-4):
             # get correct decoding depending on msg length
             for i in range(len(pbr_msg_decodings)):
                 if length == pbr_msg_lengths[i]:
@@ -440,9 +440,9 @@ while True:
     elif len(recv_msg) == 12:
         # hb msg
         received_crc_pbr = struct.unpack(">L", recv_msg[-4:])[0]
-        length = len(recv_msg)
-        if received_crc_pbr == crc32(0, recv_msg[:-4], length):
+        if received_crc_pbr == crc32(0, recv_msg[:-4], 8):
             signal_count_pbr += 1
+        print("PBR HB received")
     else:
         write_to_log_time(
             "Message that does no belong to the system: {}".format(

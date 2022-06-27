@@ -31,7 +31,7 @@ def read_config(path="config_mcu"):
     Also get the board ids, that this board is the redundant
     one for.
     """
-    with open("config", "r") as f:
+    with open(path, "r") as f:
         config = f.read()
     config = config.split("\n")[0].split(",")
     j = 0
@@ -267,6 +267,7 @@ def lora_rcv_exec(p):
             try:
                 received_crc = ustruct.unpack(">L", msg[-4:])[0]
                 if received_crc == crc32(0, msg[:-4], 16):
+                    print("lora proc")
                     recv_msg = ustruct.unpack(_pkng_frmt_ack, msg[:-4])
                     board_id = recv_msg[3]
                     # check whethter recv_msg is an ack or not
@@ -274,6 +275,8 @@ def lora_rcv_exec(p):
                         # if it is an ack, perform old algorithm for
                         # deleting the corresponding packet from the que
                         timestamp = recv_msg[4]
+                        print(timestamp)
+                        print(que)
                         if int(board_id) == SENSORBOARD_ID:
                             for each_pkt in que:
                                 if each_pkt[1] == int(timestamp):
@@ -283,9 +286,10 @@ def lora_rcv_exec(p):
                         # accordingly
                         board_failed = recv_msg[1]
                         failed_board = recv_msg[2]
-                        if board_failed == 1 and failed_board in board_ids:
+                        print(board_failed, failed_board)
+                        if board_failed == 0 and failed_board in board_ids:
                             sensorboard_list[failed_board] += 1
-                        elif board_failed == 0 and failed_board in board_ids:
+                        elif board_failed == 1 and failed_board in board_ids:
                             sensorboard_list[failed_board] = 0
                     write_to_log("Lora msg process",
                                  str(time.mktime(time.localtime())))
@@ -344,9 +348,6 @@ retx_interval = 5000  # 5 sec
 retransmit_count = 0
 packet_no = 0
 
-# receive parameters
-_pkng_frmt = ">13f2H2I"
-
 # msg init
 msg = ""
 
@@ -361,7 +362,7 @@ status_msg = "Current connection variables (CO2, CO, O2, BMP, AMs): "
 _pkng_frmt = ">13f2H2I"
 
 # package format for ack
-_pkng_frmt_ack = ">3I2H"  # 16 bytes for ack
+_pkng_frmt_ack = ">2H3I"  # 16 bytes for ack
 
 # unique node id for sender identification
 SENSORBOARD_ID = get_node_id()
@@ -398,7 +399,7 @@ timer2 = Timer(2)
 SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 # timing interval fpr checking "heartbeat" msgs
-timer_interval = 120000  # 90s
+timer_interval = 120000  # 120s
 
 # redundant board ids
 board_ids = read_config()
@@ -531,7 +532,16 @@ while True:
     SENSOR_STATUS = 0
     LIMITS_BROKEN = 0
 
+    # get rssi for performance information
+    rssi = lora.get_rssi()
+    hb_msg = ustruct.pack(_pkng_frmt, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0,
+                          -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, rssi, 0, 0,
+                          0, SENSORBOARD_ID)
+    hb_msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
+    hb_msg += ustruct.pack(">L", crc32(0, hb_msg, 68))  # add 32-bit crc
+
     if cb_redundancy_done:
+        print("checking boards")
         micropython.schedule(lora_rcv_exec, 0)  # process received msgs
         i = 0
         for each_board in list(sensorboard_list.keys()):
@@ -547,16 +557,11 @@ while True:
         # change to normal mode.
         if True in change_mode_list:
             change_mode = True
+            print("change_mode: True")
         else:
             change_mode = False
-        # get rssi for performance information
-        rssi = lora.get_rssi()
+            print("change_mode: False")
         # prepare hb data to be sent
-        hb_msg = ustruct.pack(_pkng_frmt, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0,
-                              -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, rssi, 0, 0,
-                              0, SENSORBOARD_ID)
-        hb_msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
-        hb_msg += ustruct.pack(">L", crc32(0, hb_msg, 68))  # add 32-bit crc
         cb_redundancy_done = False
         write_to_log("HB routine done", str(time.mktime(time.localtime())))
 
@@ -634,6 +639,7 @@ while True:
                     add_to_que(msg, current_time)
                     lora.send(que[0][0])
                     lora.recv()
+                    print("sent msg")
                     if not LIMITS_BROKEN:
                         packet_no += 1
                         write_to_log("PKT {} sent".format(packet_no),
@@ -642,6 +648,7 @@ while True:
                     add_to_que(hb_msg, current_time)
                     lora.send(que[0][0])
                     lora.recv()
+                    print("sent hb msg")
                     write_to_log("HB sent", str(time.mktime(time.localtime())))
                 start_time = current_time
                 timer1.init(period=retx_interval,
@@ -671,6 +678,7 @@ while True:
                 if que != []:
                     lora.send(que[0][0])
                     lora.recv()
+                    print("retrans")
                     write_to_log("msg retransmitted",
                                  str(time.mktime(time.localtime())))
                 if retransmit_count >= 2:

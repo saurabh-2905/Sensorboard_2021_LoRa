@@ -3,8 +3,6 @@
 # date: 09.06.2022
 # function: Code for esp32 board with lora module and sd card reader.
 #           Needed SD Card format is W95 FAT32 (LBA).
-#           Same as main_scratch.py, Raw LoRa plus retransmission plus
-#           random back-off.
 # -------------------------------------------------------------------------------
 
 from machine import Pin, I2C, SoftSPI, Timer, UART
@@ -442,9 +440,6 @@ lora.on_recv(cb_lora)
 start_time = time.mktime(time.localtime())
 
 write_to_log("start measuring", str(time.mktime(time.localtime())))
-
-# initial sleep for sync
-time.sleep(10)
 
 while True:
     # get the current time of the script in seconds wrt the localtime

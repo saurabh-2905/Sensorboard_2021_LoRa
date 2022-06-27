@@ -375,7 +375,7 @@ while True:
             all_values += [values +
                            tuple(timestamp) +
                            tuple(rx_datetime) +
-                           tuple(len(packet_list[id_received])) +
+                           tuple([len(packet_list[old_id])]) +
                            tuple(retransmitted_packets) +
                            tuple(restarts) +
                            tuple([invalid_crcs])]
