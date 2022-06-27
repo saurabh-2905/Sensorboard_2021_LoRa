@@ -33,12 +33,9 @@ def read_config(path="config"):
     with open("config", "r") as f:
         config = f.read()
     config = config.split("\n")[0].split(",")
-    redundant_c = config.split("\n")[2].split(",")
     for i in range(len(config)):
         config[i] = int(config[i])
-    for i in range(len(redundant_c)):
-        redundant_c[i] = int(redundant_c[i])
-    return config, redundant_c
+    return config
 
 
 def write_to_log(msg):
@@ -269,7 +266,7 @@ cb_timer_done = False
 MAX_COUNT = 3
 
 # board_ids based on the manuall numbering of the boards (to map to old ids)
-board_ids, redundant_ids = read_config()
+board_ids = read_config()
 sensorboard_list = dict()
 for i in range(len(board_ids)):
     sensorboard_list[board_ids[i]] = 0
@@ -390,7 +387,7 @@ while True:
 
             status_log = "S;" + str(id_received) + ";"
             status_log += str(packets_missed[id_received]) + ";"
-            status_log += str(len(packet_list[id_received])) + ";"
+            status_log += str(len(packet_list[old_id])) + ";"
             status_log += str(retransmitted_packets[id_received]) + ";"
             status_log += str(invalid_crcs) + "\n"
             log_data(status_log)

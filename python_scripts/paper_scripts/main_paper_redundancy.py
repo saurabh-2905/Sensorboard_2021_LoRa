@@ -24,12 +24,14 @@ def read_config(path="config_redundant"):
     """
     with open(path, "r") as f:
         config = f.read()
-    config = config.split("\n")[0].split(",")
-    redundant_c = config.split("\n")[2].split(",")
+    config_split = config.split("\n")
+    config = config_split[0].split(",")
+    redundant_c = config_split[2].split(",")
     for i in range(len(config)):
         config[i] = int(config[i])
     for i in range(len(redundant_c)):
         redundant_c[i] = int(redundant_c[i])
+        config.append(redundant_c[i])
     return config, redundant_c
 
 
@@ -262,6 +264,7 @@ MAX_COUNT = 3
 
 # board_ids based on the manuall numbering of the boards (to map to old ids)
 board_ids, redundant_ids = read_config()
+print(redundant_ids)
 sensorboard_list = dict()
 for i in range(len(board_ids)):
     sensorboard_list[board_ids[i]] = 0
@@ -343,13 +346,15 @@ while True:
                                   id_received, timestamp[0])
             ack_msg += struct.pack(">L", crc32(0, ack_msg, 16))
             send(ack_msg)
-
+            
             # add heartbeat
             sensorboard_list[id_received] += 1
 
             # only proceed with msg processing if the msg is no
             # heartbeat msg
-            if not values[0] == -1.0:
+            if values[0] == -1.0:
+                print("hb received")
+            else:
                 old_id = map_board_ids(id_received) - 1
                 if packet_no_received == 0 and len(packet_list[old_id]) != 0:
                     packet_list[old_id] = []
@@ -373,7 +378,7 @@ while True:
                 all_values += [values +
                                tuple(timestamp) +
                                tuple(rx_datetime) +
-                               tuple(len(packet_list[id_received])) +
+                               tuple([len(packet_list[old_id])]) +
                                tuple(retransmitted_packets) +
                                tuple(restarts) +
                                tuple([invalid_crcs])]
@@ -429,7 +434,7 @@ while True:
                     # to all boards registered as redundant.
                     # The redundant boards will decide if they go back to
                     # normal mode or stay in redundant mode
-                    for i in range(len(redundant_ids)):
+                    for j in range(len(redundant_ids)):
                         redundant_msg = struct.pack(_pkng_frmt_ack, 1, 1,
                                                     each_board,
                                                     redundant_ids[i], 0)
@@ -439,10 +444,10 @@ while True:
                 else:
                     # send a msg to all boards that are registered as redundant
                     # boards inidicating that the board (each_board) is working
-                    for i in range(len(redundant_ids)):
+                    for k in range(len(redundant_ids)):
                         redundant_msg = struct.pack(_pkng_frmt_ack, 1, 0,
                                                     each_board,
-                                                    redundant_ids[i], 0)
+                                                    redundant_ids[k], 0)
                         redundant_msg += struct.pack(
                             ">L", crc32(0, redundant_msg, 16))
                         send(redundant_msg)
@@ -451,6 +456,7 @@ while True:
                         id_val=old_board_id), payload="1000")
                 sensorboard_list[each_board] = 0
                 i += 1
+                time.sleep(1)
         except Exception as e:
             print(str(e))
         # store the values for visualization

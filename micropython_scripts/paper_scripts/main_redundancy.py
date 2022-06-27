@@ -267,7 +267,6 @@ def lora_rcv_exec(p):
             try:
                 received_crc = ustruct.unpack(">L", msg[-4:])[0]
                 if received_crc == crc32(0, msg[:-4], 16):
-                    print("lora proc")
                     recv_msg = ustruct.unpack(_pkng_frmt_ack, msg[:-4])
                     board_id = recv_msg[3]
                     # check whethter recv_msg is an ack or not
@@ -275,8 +274,6 @@ def lora_rcv_exec(p):
                         # if it is an ack, perform old algorithm for
                         # deleting the corresponding packet from the que
                         timestamp = recv_msg[4]
-                        print(timestamp)
-                        print(que)
                         if int(board_id) == SENSORBOARD_ID:
                             for each_pkt in que:
                                 if each_pkt[1] == int(timestamp):
@@ -286,6 +283,7 @@ def lora_rcv_exec(p):
                         # accordingly
                         board_failed = recv_msg[1]
                         failed_board = recv_msg[2]
+                        print(board_failed, failed_board)
                         if board_failed == 0 and failed_board in board_ids:
                             sensorboard_list[failed_board] += 1
                         elif board_failed == 1 and failed_board in board_ids:
@@ -398,7 +396,7 @@ timer2 = Timer(2)
 SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 # timing interval fpr checking "heartbeat" msgs
-timer_interval = 90000  # 120s
+timer_interval = 120000  # 120s
 
 # redundant board ids
 board_ids = read_config()
@@ -556,10 +554,8 @@ while True:
         # change to normal mode.
         if True in change_mode_list:
             change_mode = True
-            print("change_mode: True")
         else:
             change_mode = False
-            print("change_mode: False")
         # prepare hb data to be sent
         cb_redundancy_done = False
         write_to_log("HB routine done", str(time.mktime(time.localtime())))
@@ -601,7 +597,7 @@ while True:
                     SENSOR_STATUS += 2**(i)
         try:
             write_to_log(status_msg+str(CONNECTION_VAR),
-                         str(current_time))
+                         str(time.mktime(time.localtime())))
             # get rssi for performance information
             rssi = lora.get_rssi()
             # prepare data to be sent
@@ -638,7 +634,6 @@ while True:
                     add_to_que(msg, current_time)
                     lora.send(que[0][0])
                     lora.recv()
-                    print("sent msg")
                     if not LIMITS_BROKEN:
                         packet_no += 1
                         write_to_log("PKT {} sent".format(packet_no),
@@ -647,7 +642,6 @@ while True:
                     add_to_que(hb_msg, current_time)
                     lora.send(que[0][0])
                     lora.recv()
-                    print("sent hb msg")
                     write_to_log("HB sent", str(time.mktime(time.localtime())))
                 start_time = current_time
                 timer1.init(period=retx_interval,
