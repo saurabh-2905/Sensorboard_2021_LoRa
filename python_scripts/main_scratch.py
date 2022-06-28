@@ -367,53 +367,51 @@ while True:
             # add heartbeat
             sensorboard_list[id_received] += 1
 
-            if not values[0] == -1.0:
-                old_id = map_board_ids(id_received) - 1
-                if packet_no_received == 0 and len(packet_list[old_id]) != 0:
-                    packet_list[old_id] = []
-                    restarts[old_id] += 1
+            old_id = map_board_ids(id_received) - 1
+            if packet_no_received == 0 and len(packet_list[old_id]) != 0:
+                packet_list[old_id] = []
+                restarts[old_id] += 1
 
-                # check if packet is a retransmission
-                if packet_no_received in packet_list[old_id]:
-                    packet_list[old_id].remove(packet_no_received)
-                    retransmitted_packets[id_received] += 1
-                packet_list[old_id].append(packet_no_received)
+            # check if packet is a retransmission
+            if packet_no_received in packet_list[old_id]:
+                packet_list[old_id].remove(packet_no_received)
+                retransmitted_packets[id_received] += 1
+            packet_list[old_id].append(packet_no_received)
 
-                # check if packets were lost
-                packets_yet_received = len(packet_list[old_id]) - 1
-                if packets_yet_received == packet_no_received:
-                    packets_missed[id_received] = 0
-                elif packets_yet_received < packet_no_received:
-                    lost_packets = packet_no_received - packets_yet_received
-                    packets_missed[id_received] = lost_packets
+            # check if packets were lost
+            packets_yet_received = len(packet_list[old_id]) - 1
+            if packets_yet_received == packet_no_received:
+                packets_missed[id_received] = 0
+            elif packets_yet_received < packet_no_received:
+                lost_packets = packet_no_received - packets_yet_received
+                packets_missed[id_received] = lost_packets
 
-                # save data for log and later visualization
-                all_values += [values +
-                               tuple(timestamp) +
-                               tuple(rx_datetime) +
-                               tuple([len(packet_list[old_id])]) +
-                               tuple(retransmitted_packets) +
-                               tuple(restarts) +
-                               tuple([invalid_crcs])]
-                write_to_log_time("Received ", str(timestamp[0]),
-                                  str(rx_datetime))
+            # save data for log and later visualization
+            all_values += [values +
+                           tuple(timestamp) +
+                           tuple(rx_datetime) +
+                           tuple([len(packet_list[old_id])]) +
+                           tuple(retransmitted_packets) +
+                           tuple(restarts) +
+                           tuple([invalid_crcs])]
+            write_to_log_time("Received ", str(timestamp[0]),
+                              str(rx_datetime))
 
-                value_list = list(values)
+            value_list = list(values)
 
-                # Round values to visualize the actual
-                # data that goes to the backend
-                for i in range(len(value_list)):
-                    if i <= 3:
-                        value_list[i] = round(value_list[i], 2)
-                    elif i <= 11:
-                        value_list[i] = round(value_list[i], 1)
+            # Round values to visualize the actual
+            # data that goes to the backend
+            for i in range(len(value_list)):
+                if i <= 3:
+                    value_list[i] = round(value_list[i], 2)
+                elif i <= 11:
+                    value_list[i] = round(value_list[i], 1)
             try:
-                if not values[0] == -1.0:
-                    send_mqtt(value_list, prssi)
-                    print("Sent to MQTT")
-                    print(value_list,
-                          timestamp,
-                          create_timestamp(receiver_timestamp))
+                send_mqtt(value_list, prssi)
+                print("Sent to MQTT")
+                print(value_list,
+                      timestamp,
+                      create_timestamp(receiver_timestamp))
             except Exception:
                 print("---------------- UNKOWN_BOARD_ID: " +
                       str(values[16]) + " ----------------")
