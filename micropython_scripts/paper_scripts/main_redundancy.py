@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # authors: Florian Stechmann, Saurabh Band, Malavika Unnikrishnan
-# date: 24.06.2022
+# date: 28.06.2022
 # function: Code for esp32 board with lora module and sd card reader.
 #           Needed SD Card format is W95 FAT32 (LBA). Redundant implementation
 #           that will act as a board only sending heartbeats, until a msg is
@@ -259,7 +259,7 @@ def lora_rcv_exec(p):
     any msgs indicating that the board has to switch form redundant mode to
     normal mode.
     """
-    global cb_lora_recv, rcv_msg, sensorboard_list
+    global cb_lora_recv, rcv_msg, change_mode, sensorboard_list
     if cb_lora_recv:
         cb_lora_recv = False
         for i in range(len(rcv_msg)):
@@ -283,11 +283,20 @@ def lora_rcv_exec(p):
                         # accordingly
                         board_failed = recv_msg[1]
                         failed_board = recv_msg[2]
-                        print(board_failed, failed_board)
                         if board_failed == 0 and failed_board in board_ids:
-                            sensorboard_list[failed_board] += 1
+                            sensorboard_list[failed_board] = False
                         elif board_failed == 1 and failed_board in board_ids:
-                            sensorboard_list[failed_board] = 0
+                            sensorboard_list[failed_board] = True
+
+                        # check if a board has failed
+                        failed_boards_list = 0
+                        for each_board in list(sensorboard_list.keys()):
+                            if sensorboard_list[each_board]:
+                                failed_boards_list += 1
+                        if failed_boards_list > 0:
+                            change_mode = True
+                        else:
+                            change_mode = False
                     write_to_log("Lora msg process",
                                  str(time.mktime(time.localtime())))
             except Exception as e:
@@ -536,29 +545,6 @@ while True:
                           0, SENSORBOARD_ID)
     hb_msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
     hb_msg += ustruct.pack(">L", crc32(0, hb_msg, 68))  # add 32-bit crc
-
-    if cb_redundancy_done:
-        print("checking boards")
-        micropython.schedule(lora_rcv_exec, 0)  # process received msgs
-        i = 0
-        for each_board in list(sensorboard_list.keys()):
-            signal_count = sensorboard_list[each_board]
-            if signal_count < 1:
-                change_mode_list[i] = True
-            else:
-                change_mode_list[i] = False
-            sensorboard_list[each_board] = 0
-            i += 1
-
-        # if one of the board registered by config_mcu is not working,
-        # change to normal mode.
-        if True in change_mode_list:
-            change_mode = True
-        else:
-            change_mode = False
-        # prepare hb data to be sent
-        cb_redundancy_done = False
-        write_to_log("HB routine done", str(time.mktime(time.localtime())))
 
     if change_mode:
         SENSOR_STATUS = 0
