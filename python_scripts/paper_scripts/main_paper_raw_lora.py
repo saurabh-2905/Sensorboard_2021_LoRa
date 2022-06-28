@@ -171,12 +171,13 @@ def publish_limits_broken(id_val, limits_val):
                        payload="10000")
 
 
-def send_mqtt(values):
+def send_mqtt(values, prssi):
     """
     Sends given values to the MQTT Server. Also publishes information
     about working and not working sensors, given by :function: check_sensors.
     """
     connect_mqtt()
+    CLIENT.publish(topic=_PRSSI_rbpi, payload=str(prssi))
     # get the integer board id from the hardware board id
     id_val_index = map_board_ids(values[16])
     id_val = str(id_val_index)
@@ -248,12 +249,18 @@ _TOPICS = ("board{id_val}/co2_scd", "board{id_val}/co",
            "board{id_val}/temp3_am", "board{id_val}/humid3_am",
            "board{id_val}/temp4_am", "board{id_val}/humid4_am",
            "board{id_val}/rssi")
+
 # Topic for the Sensorboardstatus
 _Failed_times = "board{id_val}/active_status"
+
 # Topic for the Sensorstatus
 _Failed_sensor = "sensor{id_val}_stat_"
+
 # Topic for broken limits
 _Limits_broken = "board{id_val}/limits"
+
+# Topic for PRSSI value
+_PRSSI_rbpi = "lora_router_prssi"
 
 # Constants depending on the msg structure
 number_of_sensors = 8
@@ -400,7 +407,7 @@ while True:
                 elif i <= 11:
                     value_list[i] = round(value_list[i], 1)
             try:
-                send_mqtt(value_list)
+                send_mqtt(value_list, prssi)
                 print("Sent to MQTT")
                 print(value_list,
                       timestamp,
