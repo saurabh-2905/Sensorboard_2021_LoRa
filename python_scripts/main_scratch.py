@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika Unnikrishnan, Saurabh Band
-# date: 28.06.2022
+# date: 05.07.2022
 # function: Central LoRa receiver. Pushes data via MQTT to the Backend.
 # -------------------------------------------------------------------------------
 
@@ -309,8 +309,8 @@ _pkng_frmt = ">13f2H2I"
 # ------------------------ pbr constants --------------------------------------
 
 # PBR msg lengths
-pbr_msg_lengths = (56, 92, 128, 164)
-pbr_msg_decodings = (">9f2H2I", ">18f2H2I", ">27f2H2I", ">36f2H2I")
+pbr_msg_length = 60  # 52 bytes + 4 (timestamp) + 4 (crc32)
+pbr_msg_decoding = ">10f2H2I"  # 52 bytes
 
 # PBR topics
 _PBR_TOPICS = ("pbr1/ph", "pbr1/temp_l", "pbr1/do", "pbr1/od", "pbr1/co2",
@@ -415,43 +415,25 @@ while True:
             except Exception:
                 print("---------------- UNKOWN_BOARD_ID: " +
                       str(values[16]) + " ----------------")
-    elif len(recv_msg) in pbr_msg_lengths:
+    if len(recv_msg) == pbr_msg_length:
         received_crc_pbr = struct.unpack(">L", recv_msg[-4:])[0]
-        length = len(recv_msg)
-        if received_crc_pbr == crc32(0, recv_msg[:-4], length-4):
-            # get correct decoding depending on msg length
-            for i in range(len(pbr_msg_decodings)):
-                if length == pbr_msg_lengths[i]:
-                    decoding = pbr_msg_decodings[i]
-
+        if received_crc_pbr == crc32(0, recv_msg[:-4], pbr_msg_length-4):
             # send ACK
-            values = struct.unpack(decoding, recv_msg[:-8])
+            values = struct.unpack(pbr_msg_decoding, recv_msg[:-8])
             timestamp = list(struct.unpack(">L", recv_msg[-8:-4]))
-            id_received = values[len(values)-1]
+            id_received = values[13]
             send(str(id_received) + "," + str(timestamp[0]))
 
             # send data to backend
             connect_mqtt()
-            for i in range(length+1):
-                offset = no_meas_pbr*i
-                for j in range(len(_PBR_TOPICS)):
-                    CLIENT.publish(topic=_PBR_TOPICS[j],
-                                   payload=str(values[j+offset]))
-
+            for j in range(len(_PBR_TOPICS)):
+                CLIENT.publish(topic=_PBR_TOPICS[j],
+                               payload=str(values[j]))
+            values = list(values)
             # print values
             for i in range(len(values)):
                 values[i] = round(values[i], 2)
-            print(values)
-    elif len(recv_msg) == 12:
-        # hb msg
-        received_crc_pbr = struct.unpack(">L", recv_msg[-4:])[0]
-        if received_crc_pbr == crc32(0, recv_msg[:-4], 8):
-            signal_count_pbr += 1
-        print("PBR HB received")
-    else:
-        write_to_log_time(
-            "Message that does no belong to the system: {}".format(
-                len(recv_msg)), str(timestamp[0]), str(rx_datetime))
+            print("PBR: ", values, timestamp)
 
     # checks if any boards are not working
     if cb_timer_done:
@@ -479,17 +461,15 @@ while True:
                 sensorboard_list[each_board] = 0
                 i += 1
 
-                if not counter_pbr:
-                    counter_pbr = True
-                elif counter_pbr:
-                    if signal_count < 1:
-                        print("PBR Board not working")
-                        CLIENT.publish(topic=_PBR_STATUS, payload="10000")
-                    else:
-                        print("PBR signal count:", signal_count_pbr)
-                        CLIENT.publish(topic=_PBR_STATUS, payload="1000")
-                    signal_count_pbr = 0
-                    counter_pbr = False
+                # PBR
+                if signal_count < 1:
+                    print("PBR Board not working")
+                    CLIENT.publish(topic=_PBR_STATUS, payload="10000")
+                else:
+                    print("PBR signal count:", signal_count_pbr)
+                    CLIENT.publish(topic=_PBR_STATUS, payload="1000")
+                signal_count_pbr = 0
+                counter_pbr = False
         except Exception as e:
             print(str(e))
         # store the values for visualization
