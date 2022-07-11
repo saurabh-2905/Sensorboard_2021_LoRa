@@ -315,7 +315,7 @@ SENSORBOARD_ID = get_node_id()
 micropython.alloc_emergency_exception_buf(100)
 
 # thresshold limits
-THRESHOLDS = ((0.0, 3000.0),
+THRESHOLDS = ((0.0, 200.0),
               (0.0, 20.0),
               (18, 23.0),
               (950.0, 1040.0),
@@ -443,7 +443,7 @@ start_time = time.mktime(time.localtime())
 write_to_log("start measuring", str(time.mktime(time.localtime())))
 
 # initial sleep for sync
-time.sleep(10)
+time.sleep(13)
 
 while True:
     # get the current time of the script in seconds wrt the localtime
