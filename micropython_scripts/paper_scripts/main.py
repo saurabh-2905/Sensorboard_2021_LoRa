@@ -319,7 +319,7 @@ SENSORBOARD_ID = get_node_id()
 micropython.alloc_emergency_exception_buf(100)
 
 # thresshold limits
-THRESHOLDS = ((0.0, 200.0),
+THRESHOLDS = ((0.0, 3000.0),
               (0.0, 20.0),
               (18, 23.0),
               (950.0, 1040.0),
@@ -461,14 +461,14 @@ while True:
                 # readings for CO2, CO, O2 and pressure are taken.
                 micropython.schedule(func_call, i)
                 if not THRESHOLDS[i][0] <= SENSOR_DATA[i] <= THRESHOLDS[i][1]:
-                    LIMITS_BROKEN = 1
+                    LIMITS_BROKEN = 0
             else:
                 # AM2301 readings (involves 2 values)
                 micropython.schedule(func_call, i)
                 if not THRESHOLDS[4][0] <= am_temp <= THRESHOLDS[4][1]:
-                    LIMITS_BROKEN = 1
+                    LIMITS_BROKEN = 0
                 if not THRESHOLDS[4][2] <= am_hum <= THRESHOLDS[4][3]:
-                    LIMITS_BROKEN = 1
+                    LIMITS_BROKEN = 0
                 SENSOR_DATA[j] = am_temp
                 SENSOR_DATA[j+1] = am_hum
                 j += 2

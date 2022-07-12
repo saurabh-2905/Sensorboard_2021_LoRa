@@ -287,8 +287,8 @@ cb_retrans_done = False
 cb_lora_recv = False
 
 # initial msg sending intervals
-msg_interval = 30000  # 30 sec
-retx_interval = 5000  # 5 sec
+msg_interval = random.randrange(20000, 40000, 1000)
+retx_interval = random.randrange(2000, 10000, 1000)
 
 # init process variables
 retransmit_count = 0
