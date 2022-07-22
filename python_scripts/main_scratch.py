@@ -423,7 +423,7 @@ while True:
             timestamp = list(struct.unpack(">L", recv_msg[-8:-4]))
             id_received = values[13]
             send(str(id_received) + "," + str(timestamp[0]))
-
+            signal_count_pbr += 1
             # send data to backend
             connect_mqtt()
             for j in range(len(_PBR_TOPICS)):
@@ -461,15 +461,13 @@ while True:
                 sensorboard_list[each_board] = 0
                 i += 1
 
-                # PBR
-                if signal_count < 1:
+                if signal_count_pbr < 1:
                     print("PBR Board not working")
                     CLIENT.publish(topic=_PBR_STATUS, payload="10000")
                 else:
                     print("PBR signal count:", signal_count_pbr)
                     CLIENT.publish(topic=_PBR_STATUS, payload="1000")
                 signal_count_pbr = 0
-                counter_pbr = False
         except Exception as e:
             print(str(e))
         # store the values for visualization
