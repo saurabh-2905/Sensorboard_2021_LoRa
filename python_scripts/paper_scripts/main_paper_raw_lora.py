@@ -301,7 +301,7 @@ MQTT_SERVER = "192.168.30.17"
 CLIENT = mqtt.Client()
 
 # interval for checking if the board are working
-timer_interval = 90
+timer_interval = 60
 
 # receive parameters
 MESSAGE_LENGTH = 72

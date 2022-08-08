@@ -288,8 +288,8 @@ cb_retrans_done = False
 cb_lora_recv = False
 
 # initial msg sending intervals
-msg_interval = 30000  # 30 sec
-retx_interval = 5000  # 5 sec
+msg_interval = 15000  # 30 sec -> 15 sec
+retx_interval = 2500  # 5 sec -> 2.5 sec
 
 # init process variables
 retransmit_count = 0
@@ -315,7 +315,7 @@ SENSORBOARD_ID = get_node_id()
 micropython.alloc_emergency_exception_buf(100)
 
 # thresshold limits
-THRESHOLDS = ((0.0, 200.0),
+THRESHOLDS = ((0.0, 3000.0),
               (0.0, 20.0),
               (18, 23.0),
               (950.0, 1040.0),
