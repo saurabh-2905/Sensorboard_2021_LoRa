@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # authors: Florian Stechmann, Saurabh Band, Malavika Unnikrishnan
-# date: 08.08.2022
+# date: 09.08.2022
 # function: Code for esp32 board with lora module and sd card reader.
 #           Needed SD Card format is W95 FAT32 (LBA).
 #           Same as main_scratch.py, Raw LoRa plus retransmission plus
@@ -291,9 +291,9 @@ cb_lora_recv = False
 # initial msg sending intervals
 # select time randomly with steps of 1000ms, because the
 # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-msg_interval = random.randrange(10000, 20000, 500)
+msg_interval = random.randrange(5000, 10000, 250)
 # select random time interval with step size of 1 sec
-retx_interval = random.randrange(1000, 5000, 500)
+retx_interval = random.randrange(500, 2500, 250)
 
 # init process variables
 retransmit_count = 0
@@ -536,9 +536,9 @@ while True:
                 if random.random() >= 0.4:
                     # select time randomly with steps of 1000ms, because the
                     # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-                    msg_interval = random.randrange(10000, 20000, 500)
+                    msg_interval = random.randrange(5000, 10000, 250)
                     # select random time interval with step size of 1 sec
-                    retx_interval = random.randrange(1000, 5000, 500)
+                    retx_interval = random.randrange(500, 2500, 250)
             except Exception as e:
                 write_to_log("error cb_30_done: {}".format(e),
                              str(current_time))

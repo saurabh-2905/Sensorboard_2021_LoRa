@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika Unnikrishnan, Saurabh Band
-# date: 24.06.2022
+# date: 08.08.2022
 # function: Central LoRa receiver. Pushes data via MQTT to the Backend.
 # -------------------------------------------------------------------------------
 
