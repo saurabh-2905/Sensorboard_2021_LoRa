@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # authors: Florian Stechmann, Saurabh Band, Malavika Unnikrishnan
-# date: 24.06.2022
+# date: 10.08.2022
 # function: Code for esp32 board with lora module and sd card reader.
 #           Needed SD Card format is W95 FAT32 (LBA).
 #           Raw LoRa implementation for the paper. No retransmission, no
@@ -443,7 +443,7 @@ start_time = time.mktime(time.localtime())
 write_to_log("start measuring", str(time.mktime(time.localtime())))
 
 # initial sleep for sync
-time.sleep(13)
+time.sleep(10)
 
 while True:
     # get the current time of the script in seconds wrt the localtime
