@@ -460,14 +460,14 @@ while True:
                 # readings for CO2, CO, O2 and pressure are taken.
                 micropython.schedule(func_call, i)
                 if not THRESHOLDS[i][0] <= SENSOR_DATA[i] <= THRESHOLDS[i][1]:
-                    LIMITS_BROKEN = 1
+                    LIMITS_BROKEN = 0
             else:
                 # AM2301 readings (involves 2 values)
                 micropython.schedule(func_call, i)
                 if not THRESHOLDS[4][0] <= am_temp <= THRESHOLDS[4][1]:
-                    LIMITS_BROKEN = 1
+                    LIMITS_BROKEN = 0
                 if not THRESHOLDS[4][2] <= am_hum <= THRESHOLDS[4][3]:
-                    LIMITS_BROKEN = 1
+                    LIMITS_BROKEN = 0
                 SENSOR_DATA[j] = am_temp
                 SENSOR_DATA[j+1] = am_hum
                 j += 2
@@ -535,6 +535,7 @@ while True:
                              str(current_time))
             # reset timer boolean
             cb_30_done = False
+            micropython.schedule(lora_rcv_exec, 0)  # process received msgs
         elif cb_retrans_done:  # retransmit every 5 secs for pkts with no ack
             cb_retrans_done = False
             try:
