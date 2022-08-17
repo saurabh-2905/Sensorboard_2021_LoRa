@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika Unnikrishnan, Saurabh Band
-# date: 05.07.2022
+# date: 17.08.2022
 # function: Central LoRa receiver. Pushes data via MQTT to the Backend.
 # -------------------------------------------------------------------------------
 
@@ -309,18 +309,19 @@ _pkng_frmt = ">13f2H2I"
 # ------------------------ pbr constants --------------------------------------
 
 # PBR msg lengths
-pbr_msg_length = 60  # 52 bytes + 4 (timestamp) + 4 (crc32)
-pbr_msg_decoding = ">10f2H2I"  # 52 bytes
+pbr_msg_length = 68  # 52 bytes + 4 (timestamp) + 4 (crc32)
+pbr_msg_decoding = ">12f2H2I"  # 52 bytes
 
 # PBR topics
-_PBR_TOPICS = ("pbr1/ph", "pbr1/temp_l", "pbr1/do", "pbr1/od", "pbr1/co2",
-               "pbr1/o2", "pbr1/amb_press", "pbr1/rh", "pbr1/temp_g")
+_PBR_TOPICS = ("pbr1/ph", "pbr1/temp_l", "pbr1/do", "pbr1/od", "pbr1/co2_1",
+               "pbr1/o2_1", "pbr1/co2_2", "pbr1/o2_2",  "pbr1/amb_press",
+               "pbr1/rh", "pbr1/temp_g")
 
 # PBR status topic
 _PBR_STATUS = "pbr1/status"
 
 # number of pbr measurement values
-no_meas_pbr = 9
+no_meas_pbr = 11
 
 # init signal count for pbr
 signal_count_pbr = 0
@@ -415,7 +416,7 @@ while True:
             except Exception:
                 print("---------------- UNKOWN_BOARD_ID: " +
                       str(values[16]) + " ----------------")
-    if len(recv_msg) == pbr_msg_length:
+    elif len(recv_msg) == pbr_msg_length:
         received_crc_pbr = struct.unpack(">L", recv_msg[-4:])[0]
         if received_crc_pbr == crc32(0, recv_msg[:-4], pbr_msg_length-4):
             # send ACK
@@ -434,6 +435,8 @@ while True:
             for i in range(len(values)):
                 values[i] = round(values[i], 2)
             print("PBR: ", values, timestamp)
+    else:
+        print(len(recv_msg))
 
     # checks if any boards are not working
     if cb_timer_done:
@@ -461,13 +464,13 @@ while True:
                 sensorboard_list[each_board] = 0
                 i += 1
 
-                if signal_count_pbr < 1:
-                    print("PBR Board not working")
-                    CLIENT.publish(topic=_PBR_STATUS, payload="10000")
-                else:
-                    print("PBR signal count:", signal_count_pbr)
-                    CLIENT.publish(topic=_PBR_STATUS, payload="1000")
-                signal_count_pbr = 0
+            if signal_count_pbr < 1:
+                print("PBR Board not working")
+                CLIENT.publish(topic=_PBR_STATUS, payload="10000")
+            else:
+                print("PBR signal count:", signal_count_pbr)
+                CLIENT.publish(topic=_PBR_STATUS, payload="1000")
+            signal_count_pbr = 0
         except Exception as e:
             print(str(e))
         # store the values for visualization
