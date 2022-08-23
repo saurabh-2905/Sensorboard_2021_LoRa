@@ -2,7 +2,7 @@
 # Obtained from:
 # https://github.com/wybiral/micropython-lora/blob/master/lora.py,
 # changed by Florian Stechmann,
-# last changed: 13.04.2022
+# last changed: 22.08.2022
 # -------------------------------------------------------------------------------
 
 import gc
@@ -216,9 +216,6 @@ class LoRa:
         self._write(REG_OP_MODE, MODE_LORA | MODE_RX_CONTINUOUS)
 
     def _irq_recv(self, event_source):
-        micropython.schedule(self._irq_scheduled, event_source)
-
-    def _irq_scheduled(self, evt_src):
         f = self._get_irq_flags()
         if f & IRQ_PAYLOAD_CRC_ERROR_MASK == 0:
             if self._on_recv:
