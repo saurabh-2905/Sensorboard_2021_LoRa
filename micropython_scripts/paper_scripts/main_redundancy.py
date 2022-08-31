@@ -347,8 +347,8 @@ cb_redundancy_done = False
 cb_lora_recv = False
 
 # initial msg sending intervals
-msg_interval = 30000  # 30 sec
-retx_interval = 5000  # 5 sec
+msg_interval = 10000  # 30 sec -> 10 sec
+retx_interval = 3000  # 5 sec -> 3 sec
 
 # init process variables
 retransmit_count = 0

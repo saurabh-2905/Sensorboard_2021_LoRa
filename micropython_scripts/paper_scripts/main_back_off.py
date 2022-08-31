@@ -291,9 +291,9 @@ cb_lora_recv = False
 # initial msg sending intervals
 # select time randomly with steps of 1000ms, because the
 # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-msg_interval = random.randrange(10000, 20000, 500)
+msg_interval = random.randrange(8000, 12000, 130)
 # select random time interval with step size of 1 sec
-retx_interval = random.randrange(1000, 5000, 500)
+retx_interval = 3000
 
 # init process variables
 retransmit_count = 0
@@ -536,9 +536,9 @@ while True:
                 if random.random() >= 0.4:
                     # select time randomly with steps of 1000ms, because the
                     # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-                    msg_interval = random.randrange(10000, 20000, 500)
+                    msg_interval = random.randrange(8000, 12000, 130)
                     # select random time interval with step size of 1 sec
-                    retx_interval = random.randrange(1000, 5000, 500)
+                    # retx_interval = random.randrange(1000, 5000, 130)
             except Exception as e:
                 write_to_log("error cb_30_done: {}".format(e),
                              str(current_time))
