@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika Unnikrishnan, Saurabh Band
-# date: 17.08.2022
+# date: 16.09.2022
 # function: Central LoRa receiver. Pushes data via MQTT to the Backend.
 # -------------------------------------------------------------------------------
 
@@ -343,11 +343,11 @@ all_values = []
 invalid_crcs = 0
 while True:
     recv_msg, prssi = receive()
+    receiver_timestamp = time.localtime()
     if len(recv_msg) == MESSAGE_LENGTH:
         received_crc = struct.unpack(">L", recv_msg[-4:])[0]
         if received_crc != crc32(0, recv_msg[:-4], MESSAGE_LENGTH-4):
             print("Invalid CRC32 in msg")
-            receiver_timestamp = time.localtime()
             rx_datetime = create_timestamp(receiver_timestamp)
             write_to_log_time("Invalid CRC32 in msg: ",
                               "N/A",
@@ -369,32 +369,11 @@ while True:
             sensorboard_list[id_received] += 1
 
             old_id = map_board_ids(id_received) - 1
-            if packet_no_received == 0 and len(packet_list[old_id]) != 0:
-                packet_list[old_id] = []
-                restarts[old_id] += 1
-
-            # check if packet is a retransmission
-            if packet_no_received in packet_list[old_id]:
-                packet_list[old_id].remove(packet_no_received)
-                retransmitted_packets[id_received] += 1
-            packet_list[old_id].append(packet_no_received)
-
-            # check if packets were lost
-            packets_yet_received = len(packet_list[old_id]) - 1
-            if packets_yet_received == packet_no_received:
-                packets_missed[id_received] = 0
-            elif packets_yet_received < packet_no_received:
-                lost_packets = packet_no_received - packets_yet_received
-                packets_missed[id_received] = lost_packets
-
-            # save data for log and later visualization
-            all_values += [values +
-                           tuple(timestamp) +
-                           tuple(rx_datetime) +
-                           tuple([len(packet_list[old_id])]) +
-                           tuple(retransmitted_packets) +
-                           tuple(restarts) +
-                           tuple([invalid_crcs])]
+                
+            packet_list[old_id].append((id_received, packet_no_received, timestamp[0], prssi, rx_datetime, invalid_crcs))
+            with open("log.pkl", "wb") as f:
+                pickle.dump(packet_list, f)
+            
             write_to_log_time("Received ", str(timestamp[0]),
                               str(rx_datetime))
 
@@ -422,7 +401,7 @@ while True:
             # send ACK
             values = struct.unpack(pbr_msg_decoding, recv_msg[:-8])
             timestamp = list(struct.unpack(">L", recv_msg[-8:-4]))
-            id_received = values[13]
+            id_received = values[15]
             send(str(id_received) + "," + str(timestamp[0]))
             signal_count_pbr += 1
             # send data to backend
