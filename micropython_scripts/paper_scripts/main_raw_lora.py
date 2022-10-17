@@ -288,8 +288,8 @@ cb_retrans_done = False
 cb_lora_recv = False
 
 # initial msg sending intervals
-msg_interval = 5000  # 30 sec -> 10 sec
-retx_interval = 3000  # 5 sec -> 3 sec
+msg_interval = 30000  # 30 sec -> 10 sec
+retx_interval = 5000  # 5 sec -> 3 sec
 
 # init process variables
 retransmit_count = 0
@@ -443,7 +443,7 @@ start_time = time.mktime(time.localtime())
 write_to_log("start measuring", str(time.mktime(time.localtime())))
 
 # initial sleep for sync
-time.sleep(11)
+time.sleep(10)
 
 while True:
     # get the current time of the script in seconds wrt the localtime
