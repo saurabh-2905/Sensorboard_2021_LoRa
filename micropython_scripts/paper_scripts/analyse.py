@@ -28,7 +28,27 @@ def calc_rssi_mean(rssi_data):
     for i in range(len_data):
         rssi_sum += rssi_data[i][1]
     return rssi_sum/len_data
-    
-print(str(pdr_calc(board1_data)) + ' ' + str(calc_rssi_mean(board1_data)))
-print(str(pdr_calc(board2_data)) + ' ' + str(calc_rssi_mean(board2_data)))
-print(str(pdr_calc(board4_data)) + ' ' + str(calc_rssi_mean(board4_data)))
+
+
+def timestamp_calc(data):
+    len_data = len(data)
+    no_retr = 0
+    retr = 0
+    for i in range(len_data):
+        time_diff = data[i][2] - data[i][3]
+        if time_diff > 20:
+            no_retr += 1
+        else:
+            retr += 1
+    return no_retr, retr
+
+
+print(str(pdr_calc(board1_data)) + ' ' +
+      str(calc_rssi_mean(board1_data)) + ' ' +
+      str(timestamp_calc(board1_data)))
+print(str(pdr_calc(board2_data)) + ' ' +
+      str(calc_rssi_mean(board2_data)) + ' ' +
+      str(timestamp_calc(board2_data)))
+print(str(pdr_calc(board4_data)) + ' ' +
+      str(calc_rssi_mean(board4_data)) + ' ' +
+      str(timestamp_calc(board4_data)))

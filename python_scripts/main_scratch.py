@@ -303,7 +303,7 @@ CLIENT = mqtt.Client()
 timer_interval = 90
 
 # receive parameters
-MESSAGE_LENGTH = 72
+MESSAGE_LENGTH = 76
 _pkng_frmt = ">13f2H2I"
 
 # ------------------------ pbr constants --------------------------------------
@@ -355,26 +355,28 @@ while True:
             invalid_crcs += 1
         else:
             # exclude timstamp and crc (8 bytes) to get msg
-            values = struct.unpack(_pkng_frmt, recv_msg[:-8])
+            values = struct.unpack(_pkng_frmt, recv_msg[:-12])
             id_received = values[16]
             packet_no_received = values[15]
-            timestamp = list(struct.unpack(">L", recv_msg[-8:-4]))
+            timestamp_sent = list(struct.unpack(">L", recv_msg[-8:-4]))[0]
+            timestamp_retr = list(struct.unpack(">L", recv_msg[-12:-8]))[0]
             receiver_timestamp = time.localtime()
             rx_datetime = create_timestamp(receiver_timestamp)
 
             # send ACK
-            send(str(id_received) + "," + str(timestamp[0]))
+            send(str(id_received) + "," + str(timestamp_sent))
 
             # add heartbeat
             sensorboard_list[id_received] += 1
 
             old_id = map_board_ids(id_received) - 1
-                
-            packet_list[old_id].append((id_received, packet_no_received, timestamp[0], prssi, rx_datetime, invalid_crcs))
+
+            packet_list[old_id].append((id_received, packet_no_received,
+                                        timestamp_sent, timestamp_retr, prssi))
             with open("log.pkl", "wb") as f:
                 pickle.dump(packet_list, f)
-            
-            write_to_log_time("Received ", str(timestamp[0]),
+
+            write_to_log_time("Received ", str(timestamp_sent),
                               str(rx_datetime))
 
             value_list = list(values)
@@ -390,7 +392,7 @@ while True:
                 send_mqtt(value_list, prssi)
                 print("Sent to MQTT")
                 print(value_list,
-                      timestamp,
+                      timestamp_sent, timestamp_retr,
                       create_timestamp(receiver_timestamp))
             except Exception:
                 print("---------------- UNKOWN_BOARD_ID: " +
