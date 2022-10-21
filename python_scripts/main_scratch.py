@@ -1,10 +1,10 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika Unnikrishnan, Saurabh Band
-# date: 17.08.2022
+# date: 20.09.2022
 # function: Central LoRa receiver. Pushes data via MQTT to the Backend.
 # -------------------------------------------------------------------------------
 
-from datetime import datetime
+from gui import PBR_Control
 
 import paho.mqtt.client as mqtt
 
@@ -30,28 +30,12 @@ def read_config(path="config"):
     return config
 
 
-def write_to_log(msg):
-    """
-    Write a given Message to the file log.txt.
-    """
-    with open("log.txt", "a") as f:
-        f.write(msg + "\t" + get_date_and_time() + "\n")
-
-
 def write_to_log_time(msg, timestamp, rx_timestamp):
     """
     Write a given Message to the file log.txt.
     """
     with open("log.txt", "a") as f:
         f.write(msg + "\t" + timestamp + "\t" + rx_timestamp + "\n")
-
-
-def get_date_and_time():
-    """
-    Return the current date and time as a string. Formatted like:
-    "DAY.MONTH.YEAR -- HOUR:MINUTE:SECOND"
-    """
-    return datetime.now().strftime("%d.%m.%Y" + " -- " + "%H:%M:%S")
 
 
 def lora_init():
@@ -94,7 +78,7 @@ def connect_mqtt():
     try:
         CLIENT.connect(MQTT_SERVER)
     except Exception as em:
-        write_to_log(str(em))
+        write_to_log_time(str(em), 0, 0)
 
 
 def cb():
@@ -232,6 +216,32 @@ def create_timestamp(tmstmp):
             tmstmp.tm_min, tmstmp.tm_sec]
 
 
+def send_cmd(sema1):
+    """
+    """
+    # read data from file while resources are locked
+    sema1.acquire()
+    try:
+        with open("temp", "r") as f:
+            new_values = f.read()
+    except Exception as e:
+        sema1.release()
+    sema1.release()
+    new_values = new_values.split(";")
+    pump_nr = float(new_values[4][4])
+    pump_amount = float(new_values[5])
+    tvs_send = [float(new_values[0]), float(new_values[1]),
+                float(new_values[2]), float(new_values[3])]
+    tv_msg = struct.pack(pbr_ack_decoding, 1, pump_nr, pump_amount,
+                         tvs_send[0], tvs_send[1], tvs_send[2], tvs_send[3], 0, PBR_ID)
+    tv_msg += struct.pack(">L", crc32(0, tv_msg, 34))
+    send(tv_msg)
+    sema1.acquire()
+    with open("temp", "w") as f:
+        f.write("-1.0;-1.0;-1.0;-1.0;pump0;-1.0;")
+    sema1.release()
+
+
 # ------------------------ constants and variables for the sensorboard --------
 # Tuple with MQTT topics
 _TOPICS = ("board{id_val}/co2_scd", "board{id_val}/co",
@@ -275,6 +285,11 @@ packet_list = []
 for i in range(len(board_ids)):
     packet_list.append([])
 
+# list for storing longterm data
+data_list = []
+for i in range(len(board_ids)):
+    data_list.append([])
+
 # counts the packets missed
 packets_missed = dict()
 for i in range(len(board_ids)):
@@ -309,13 +324,17 @@ _pkng_frmt = ">13f2H2I"
 # ------------------------ pbr constants --------------------------------------
 
 # PBR msg lengths
-pbr_msg_length = 68  # 52 bytes + 4 (timestamp) + 4 (crc32)
-pbr_msg_decoding = ">12f2H2I"  # 52 bytes
+pbr_msg_length = 80  # 72 bytes + 4 (timestamp) + 4 (crc32)
+pbr_msg_decoding = ">15f2H2I"  # 52 bytes
+pbr_ack_decoding = ">H6f2I"  # 34 Bytes
+
+PBR_ID = 2628075089
 
 # PBR topics
 _PBR_TOPICS = ("pbr1/ph", "pbr1/temp_l", "pbr1/do", "pbr1/od", "pbr1/co2_1",
-               "pbr1/o2_1", "pbr1/co2_2", "pbr1/o2_2",  "pbr1/amb_press",
-               "pbr1/rh", "pbr1/temp_g")
+               "pbr1/o2_1", "pbr1/co2_2", "pbr1/o2_2",  "pbr1/amb_press_1",
+               "pbr1/amb_press_2", "pbr1/rh_1", "pbr1/temp_g_1",
+               "pbr1/rh_2", "pbr1/temp_g_2")
 
 # PBR status topic
 _PBR_STATUS = "pbr1/status"
@@ -328,6 +347,12 @@ signal_count_pbr = 0
 
 # init counter pbr
 counter_pbr = False
+
+# prev tvs init
+tvs = [0, 0, 0, 0]
+
+# Semaphore for reading file with new tvs
+sema = threading.Semaphore()
 
 # ------------------------ general startup function calls ---------------------
 
@@ -369,32 +394,29 @@ while True:
             sensorboard_list[id_received] += 1
 
             old_id = map_board_ids(id_received) - 1
-            if packet_no_received == 0 and len(packet_list[old_id]) != 0:
-                packet_list[old_id] = []
-                restarts[old_id] += 1
+            #if packet_no_received == 0 and len(packet_list[old_id]) != 0:
+            #    packet_list[old_id] = []
+            #    restarts[old_id] += 1
 
             # check if packet is a retransmission
-            if packet_no_received in packet_list[old_id]:
-                packet_list[old_id].remove(packet_no_received)
-                retransmitted_packets[id_received] += 1
-            packet_list[old_id].append(packet_no_received)
+            #if packet_no_received in packet_list[old_id]:
+            #    packet_list[old_id].remove(packet_no_received)
+            #    retransmitted_packets[id_received] += 1
+            packet_list[old_id].append((packet_no_received, prssi))
 
             # check if packets were lost
-            packets_yet_received = len(packet_list[old_id]) - 1
-            if packets_yet_received == packet_no_received:
-                packets_missed[id_received] = 0
-            elif packets_yet_received < packet_no_received:
-                lost_packets = packet_no_received - packets_yet_received
-                packets_missed[id_received] = lost_packets
+            #packets_yet_received = len(packet_list[old_id]) - 1
+            #if packets_yet_received == packet_no_received:
+            #    packets_missed[id_received] = 0
+            #elif packets_yet_received < packet_no_received:
+            #    lost_packets = packet_no_received - packets_yet_received
+            #    packets_missed[id_received] = lost_packets
 
-            # save data for log and later visualization
-            all_values += [values +
-                           tuple(timestamp) +
-                           tuple(rx_datetime) +
-                           tuple([len(packet_list[old_id])]) +
-                           tuple(retransmitted_packets) +
-                           tuple(restarts) +
-                           tuple([invalid_crcs])]
+            #data_list[old_id].append((id_received, packet_no_received,
+            #                          timestamp[0], prssi,
+            #                          rx_datetime, invalid_crcs))
+            with open("log.pkl", "wb") as f:
+                pickle.dump(packet_list, f)
             write_to_log_time("Received ", str(timestamp[0]),
                               str(rx_datetime))
 
@@ -422,14 +444,17 @@ while True:
             # send ACK
             values = struct.unpack(pbr_msg_decoding, recv_msg[:-8])
             timestamp = list(struct.unpack(">L", recv_msg[-8:-4]))
-            id_received = values[13]
-            send(str(id_received) + "," + str(timestamp[0]))
+            id_received = values[18]
+            ack_msg = struct.pack(pbr_ack_decoding, 0, 0, 0, 0, 0, 0, 0,
+                                  timestamp[0], id_received)
+            ack_msg += struct.pack(">L", crc32(0, ack_msg, 34))
+            send(ack_msg)
             signal_count_pbr += 1
             # send data to backend
             connect_mqtt()
             for j in range(len(_PBR_TOPICS)):
                 CLIENT.publish(topic=_PBR_TOPICS[j],
-                               payload=str(values[j]))
+                                payload=str(values[j]))
             values = list(values)
             # print values
             for i in range(len(values)):
@@ -437,9 +462,10 @@ while True:
             print("PBR: ", values, timestamp)
     else:
         print(len(recv_msg))
-
+    send_cmd(sema)
     # checks if any boards are not working
     if cb_timer_done:
+        #pbr_gui.gui.update()
         try:
             print("Invalid CRCs since last start: " + str(invalid_crcs))
             i = 0
@@ -471,10 +497,8 @@ while True:
                 print("PBR signal count:", signal_count_pbr)
                 CLIENT.publish(topic=_PBR_STATUS, payload="1000")
             signal_count_pbr = 0
+            send_cmd(sema)
         except Exception as e:
             print(str(e))
-        # store the values for visualization
-        with open("sensor_values_raspbery.pkl", "wb") as f:
-            pickle.dump(all_values, f)
         cb_timer_done = False
         threading.Timer(timer_interval, cb).start()
