@@ -504,16 +504,19 @@ while True:
     if LORA_ESTABLISHED:
         if LIMITS_BROKEN:  # sends imidiately if threshold limits are broken
             try:
+                msg += ustruct.pack(">L", current_time)
+                msg += ustruct.pack(">L", current_time)
+                msg += ustruct.pack(">L", crc32(0, msg, 72))
                 add_to_que(msg, current_time)
                 lora.send(msg)
                 lora.recv()
                 packet_no += 1
                 write_to_log("PKT {} sent, Limits broken".format(packet_no),
-                             str(time.mktime(time.localtime())))
+                                str(time.mktime(time.localtime())))
             except Exception as e:
                 write_to_log("error limits broken: {}".format(e),
-                             str(current_time))
-        micropython.schedule(lora_rcv_exec, 0)  # process received msgs
+                                str(current_time))
+            micropython.schedule(lora_rcv_exec, 0)  # process received msgs
         if cb_30_done:  # send the messages every 30 seconds
             try:
                 sending_time = time.mktime(time.localtime())
