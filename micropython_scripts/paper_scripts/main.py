@@ -291,9 +291,9 @@ cb_lora_recv = False
 # initial msg sending intervals
 # select time randomly with steps of 1000ms, because the
 # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-msg_interval = random.randrange(20000, 40000, 1000)
+msg_interval = random.randrange(20000, 40000, 500)
 # select random time interval with step size of 1 sec
-retx_interval = 6  # 20 % of msg_int mid value
+retx_interval = 6000
 
 # init process variables
 retransmit_count = 0
@@ -484,7 +484,7 @@ while True:
             else:
                 SENSOR_STATUS += 2**(i)
     try:
-        write_to_log(status_msg+str(CONNECTION_VAR), str(current_time))
+        # write_to_log(status_msg+str(CONNECTION_VAR), str(current_time))
         # get rssi for performance information
         rssi = lora.get_rssi()
         # prepare data to be sent
@@ -524,7 +524,7 @@ while True:
                 msg += ustruct.pack(">L", sending_time)
                 msg += ustruct.pack(">L", sending_time)
                 msg += ustruct.pack(">L", crc32(0, msg, 72))
-                add_to_que(msg, current_time)
+                add_to_que(msg, sending_time)
                 lora.send(que[0][0])
                 lora.recv()
                 if not LIMITS_BROKEN:
@@ -544,7 +544,7 @@ while True:
                 if random.random() >= 0.4:
                     # select time randomly with steps of 1000ms, because the
                     # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-                    msg_interval = random.randrange(20000, 40000, 1000)
+                    msg_interval = random.randrange(20000, 40000, 500)
                     # select random time interval with step size of 1 sec
                     # retx_interval = random.randrange(2000, 10000, 1000)
             except Exception as e:
@@ -561,7 +561,13 @@ while True:
                     # add retransmission timestamp
                     r_time = time.mktime(time.localtime())
                     r_msg = ustruct.unpack(">13f2H2IL", que[0][0][:-8])
-                    r_msg = ustruct.pack(">13f2H2IL", r_msg)
+                    r_msg = ustruct.pack(">13f2H2IL", r_msg[0], r_msg[1],
+                                         r_msg[2], r_msg[3], r_msg[4],
+                                         r_msg[5], r_msg[6], r_msg[7],
+                                         r_msg[8], r_msg[9], r_msg[10],
+                                         r_msg[11], r_msg[12], r_msg[13],
+                                         r_msg[14], r_msg[15], r_msg[16],
+                                         r_msg[17])
                     r_msg += ustruct.pack(">L", r_time)
                     r_msg += ustruct.pack(">L", crc32(0, r_msg, 72))
                     lora.send(r_msg)

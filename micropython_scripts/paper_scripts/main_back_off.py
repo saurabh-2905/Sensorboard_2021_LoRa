@@ -291,9 +291,9 @@ cb_lora_recv = False
 # initial msg sending intervals
 # select time randomly with steps of 1000ms, because the
 # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-msg_interval = random.randrange(20000, 40000, 1000)
+msg_interval = random.randrange(3000, 7000, 500)
 # select random time interval with step size of 1 sec
-retx_interval = random.randrange(2000, 10000, 1000)
+retx_interval = 3000
 
 # init process variables
 retransmit_count = 0
@@ -484,7 +484,7 @@ while True:
             else:
                 SENSOR_STATUS += 2**(i)
     try:
-        write_to_log(status_msg+str(CONNECTION_VAR), str(current_time))
+        # write_to_log(status_msg+str(CONNECTION_VAR), str(current_time))
         # get rssi for performance information
         rssi = lora.get_rssi()
         # prepare data to be sent
@@ -544,9 +544,9 @@ while True:
                 if random.random() >= 0.4:
                     # select time randomly with steps of 1000ms, because the
                     # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-                    msg_interval = random.randrange(20000, 40000, 1000)
+                    msg_interval = random.randrange(3000, 7000, 500)
                     # select random time interval with step size of 1 sec
-                    retx_interval = random.randrange(2000, 10000, 1000)
+                    # retx_interval = random.randrange(2000, 10000, 1000)
             except Exception as e:
                 write_to_log("error cb_30_done: {}".format(e),
                              str(current_time))
@@ -554,6 +554,7 @@ while True:
             cb_30_done = False
             micropython.schedule(lora_rcv_exec, 0)  # process received msgs
         elif cb_retrans_done:  # retransmit every 5 secs for pkts with no ack
+            print(que)
             cb_retrans_done = False
             try:
                 retransmit_count += 1
