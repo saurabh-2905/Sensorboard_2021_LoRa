@@ -442,4 +442,4 @@ start_time = time.mktime(time.localtime())
 
 while True:
     lora.send("noiseboard")
-    time.sleep_ms(1000)
+    time.sleep_ms(500)

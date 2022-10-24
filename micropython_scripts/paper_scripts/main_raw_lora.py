@@ -443,7 +443,7 @@ start_time = time.mktime(time.localtime())
 write_to_log("start measuring", str(time.mktime(time.localtime())))
 
 # initial sleep for sync
-time.sleep(10)
+time.sleep(12)
 
 while True:
     # get the current time of the script in seconds wrt the localtime

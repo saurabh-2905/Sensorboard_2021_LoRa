@@ -4,7 +4,7 @@
 
 import pickle
 
-with open("log_baseline1_3.pkl", "rb") as f:
+with open("log.pkl", "rb") as f:
     data = pickle.load(f)
 
 board1_data = data[0]
@@ -16,15 +16,13 @@ def pdr_calc(board_data):
     len_data = len(board_data)
     pck_list = []
     for i in range(len_data):
-        if board_data[i][0] < 101:
+        if board_data[i][0] < 100:
             pck_list.append(board_data[i][0])
     pck_lost = 0
     num_recv = pck_list[len(pck_list)-1]
-    for i in range(len_data-1):
-        if board_data[i][0] < 101:
-            j = i + board_data[0][0]
-            if j not in pck_list:
-                pck_lost += 1
+    for i in range(100):
+        if i not in pck_list:
+            pck_lost += 1
     return 1-pck_lost/num_recv, num_recv, pck_lost
 
 

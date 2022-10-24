@@ -484,7 +484,7 @@ while True:
             else:
                 SENSOR_STATUS += 2**(i)
     try:
-        write_to_log(status_msg+str(CONNECTION_VAR), str(current_time))
+        # write_to_log(status_msg+str(CONNECTION_VAR), str(current_time))
         # get rssi for performance information
         rssi = lora.get_rssi()
         # prepare data to be sent
@@ -494,7 +494,7 @@ while True:
                            SENSOR_DATA[8], SENSOR_DATA[9], SENSOR_DATA[10],
                            SENSOR_DATA[11], rssi, SENSOR_STATUS, LIMITS_BROKEN,
                            packet_no, SENSORBOARD_ID)
-        #msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
+        # msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
         # msg += ustruct.pack(">L", crc32(0, msg, 68))  # add 32-bit crc
 
         micropython.schedule(lora_rcv_exec, 0)  # process received msgs
@@ -541,12 +541,12 @@ while True:
 
                 # randomize the msg interval to avoid
                 # continous collision of packets
-                # if random.random() >= 0.4:
-                #     # select time randomly with steps of 1000ms, because the
-                #     # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-                #     msg_interval = random.randrange(20000, 40000, 1000)
-                #     # select random time interval with step size of 1 sec
-                #     retx_interval = random.randrange(2000, 10000, 1000)
+                if random.random() >= 0.4:
+                    # select time randomly with steps of 1000ms, because the
+                    # max on air time is 123ms and 390ms for SF7 and SF9 resp.
+                    msg_interval = random.randrange(3000, 7000, 500)
+                    # select random time interval with step size of 1 sec
+                    # retx_interval = random.randrange(2000, 10000, 1000)
             except Exception as e:
                 write_to_log("error cb_30_done: {}".format(e),
                              str(current_time))
@@ -554,13 +554,14 @@ while True:
             cb_30_done = False
             micropython.schedule(lora_rcv_exec, 0)  # process received msgs
         elif cb_retrans_done:  # retransmit every 5 secs for pkts with no ack
+            print(que)
             cb_retrans_done = False
             try:
                 retransmit_count += 1
                 if que != []:
                     # add retransmission timestamp
                     r_time = time.mktime(time.localtime())
-                    r_msg = ustruct.unpack(">13f2H2IL", que[0][0][-8:])
+                    r_msg = ustruct.unpack(">13f2H2IL", que[0][0][:-8])
                     r_msg = ustruct.pack(">13f2H2IL", r_msg)
                     r_msg += ustruct.pack(">L", r_time)
                     r_msg += ustruct.pack(">L", crc32(0, r_msg, 72))
