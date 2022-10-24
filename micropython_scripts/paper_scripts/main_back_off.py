@@ -291,9 +291,9 @@ cb_lora_recv = False
 # initial msg sending intervals
 # select time randomly with steps of 1000ms, because the
 # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-msg_interval = random.randrange(8000, 12000, 130)
+msg_interval = random.randrange(20000, 40000, 1000)
 # select random time interval with step size of 1 sec
-retx_interval = 3000
+retx_interval = random.randrange(2000, 10000, 1000)
 
 # init process variables
 retransmit_count = 0
@@ -494,7 +494,7 @@ while True:
                            SENSOR_DATA[8], SENSOR_DATA[9], SENSOR_DATA[10],
                            SENSOR_DATA[11], rssi, SENSOR_STATUS, LIMITS_BROKEN,
                            packet_no, SENSORBOARD_ID)
-        #msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
+        # msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
         # msg += ustruct.pack(">L", crc32(0, msg, 68))  # add 32-bit crc
 
         micropython.schedule(lora_rcv_exec, 0)  # process received msgs
@@ -560,7 +560,7 @@ while True:
                 if que != []:
                     # add retransmission timestamp
                     r_time = time.mktime(time.localtime())
-                    r_msg = ustruct.unpack(">13f2H2IL", que[0][0][-8:])
+                    r_msg = ustruct.unpack(">13f2H2IL", que[0][0][:-8])
                     r_msg = ustruct.pack(">13f2H2IL", r_msg)
                     r_msg += ustruct.pack(">L", r_time)
                     r_msg += ustruct.pack(">L", crc32(0, r_msg, 72))
