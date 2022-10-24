@@ -132,12 +132,12 @@ def measure_am4(stat):
                      str(time.mktime(time.localtime())))
 
 
-def cb_30(p):
+def cb_hb(p):
     """
     Callback for the sending of msgs every btw 20s-40s.
     """
-    global cb_30_done
-    cb_30_done = True
+    global cb_hb_done
+    cb_hb_done = True
 
 
 def cb_retrans(p):
@@ -301,7 +301,7 @@ am_hum = 0
 que = []
 
 # init cb booleans
-cb_30_done = False
+cb_hb_done = False
 cb_retrans_done = False
 cb_lora_recv = False
 cb_redundancy_done = False
@@ -364,7 +364,7 @@ FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp,
             measure_am1, measure_am2, measure_am3, measure_am4)
 
 # # create Timers
-# timer0 = Timer(0)
+timer0 = Timer(0)
 # timer1 = Timer(1)
 timer_redun = Timer(2)
 
@@ -460,8 +460,8 @@ except Exception:
 
 # ------------------------ infinite loop execution ----------------------------
 # initialize timer
-# Timer for sending msgs with measurement values + timestamp + crc
-# timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
+# Timer for heartbeat
+timer0.init(period=60000, mode=Timer.PERIODIC, callback=cb_hb)
 # write_to_log("msg sending timer activated", str(time.mktime(time.localtime())))
 
 timer_redun.init(period=13000, mode=Timer.ONE_SHOT, callback=cb_redundancy)    ### period = tx interval of primary board + 1 (for edge cases)
@@ -484,7 +484,7 @@ while True:
         redun_timer_reset =  False
         print('timer reinit flag')
 
-    if not cb_redundancy_done:
+    if not cb_redundancy_done and cb_hb_done:
         rssi = lora.get_rssi()
         hb_msg = ustruct.pack(_pkng_frmt, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0,
                             -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, rssi, 0, 0,
@@ -497,6 +497,7 @@ while True:
         lora.send(hb_msg)
         lora.recv()
         micropython.schedule(lora_rcv_exec, 0)  # process received msgs
+        cb_hb_done = False
     else:
         SENSOR_STATUS = 0
         LIMITS_BROKEN = 0

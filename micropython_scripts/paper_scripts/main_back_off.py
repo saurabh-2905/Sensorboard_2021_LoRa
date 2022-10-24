@@ -291,7 +291,7 @@ cb_lora_recv = False
 # initial msg sending intervals
 # select time randomly with steps of 1000ms, because the
 # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-msg_interval = random.randrange(8000, 12000, 130)
+msg_interval = 10000
 # select random time interval with step size of 1 sec
 retx_interval = 3000
 
@@ -541,12 +541,12 @@ while True:
 
                 # randomize the msg interval to avoid
                 # continous collision of packets
-                if random.random() >= 0.4:
-                    # select time randomly with steps of 1000ms, because the
-                    # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-                    msg_interval = random.randrange(20000, 40000, 1000)
-                    # select random time interval with step size of 1 sec
-                    retx_interval = random.randrange(2000, 10000, 1000)
+                # if random.random() >= 0.4:
+                #     # select time randomly with steps of 1000ms, because the
+                #     # max on air time is 123ms and 390ms for SF7 and SF9 resp.
+                #     msg_interval = random.randrange(20000, 40000, 1000)
+                #     # select random time interval with step size of 1 sec
+                #     retx_interval = random.randrange(2000, 10000, 1000)
             except Exception as e:
                 write_to_log("error cb_30_done: {}".format(e),
                              str(current_time))
@@ -565,6 +565,7 @@ while True:
                     r_msg += ustruct.pack(">L", r_time)
                     r_msg += ustruct.pack(">L", crc32(0, r_msg, 72))
                     lora.send(r_msg)
+                    print('sent')
                     lora.recv()
                     write_to_log("msg retransmitted",
                                  str(time.mktime(time.localtime())))
