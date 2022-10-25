@@ -232,7 +232,7 @@ def lora_rcv_exec(p):
     """
     Processed all received msgs.
     """
-    global cb_lora_recv, rcv_msg, cb_redundancy_done, redun_timer_reset, packet_no
+    global cb_lora_recv, rcv_msg, cb_redundancy_done, redun_timer_reset, packet_no #start_process
     if cb_lora_recv:
         cb_lora_recv = False
         for i in range(len(rcv_msg)):
@@ -253,12 +253,16 @@ def lora_rcv_exec(p):
                         if id_received == 94420780:
                             print(id_received)
                             print('timestamps', timestamp_sent, timestamp_retr)
+                            # if start_process:     ### check if first packet received from the PB to start timer
                             if timestamp_sent - timestamp_retr == 0:
                                 redun_timer_reset = True
                                 timer_redun.deinit()
                                 packet_no = packet_no_received
                             else:
                                 print('retransmitted')
+                            # else:
+                            #     start_process = True
+                            #     redun_timer_reset = True
             except Exception as e:
                 write_to_log("Lora msg process failure: {}".format(e),
                              str(time.mktime(time.localtime())))
@@ -304,9 +308,10 @@ que = []
 cb_hb_done = False
 cb_retrans_done = False
 cb_lora_recv = False
-cb_redundancy_done = False
-redundant_mode = True    ### True: will tx hb, False: will tx pkts 
+cb_redundancy_done = False   ### True: will tx pkts, False: will tx hb  
 redun_timer_reset = False     ### to indicate if timer complete or packet received
+# start_process = False
+# process_start_count = 1
 
 # initial msg sending intervals
 # select time randomly with steps of 1000ms, because the
@@ -464,7 +469,7 @@ except Exception:
 timer0.init(period=60000, mode=Timer.PERIODIC, callback=cb_hb)
 # write_to_log("msg sending timer activated", str(time.mktime(time.localtime())))
 
-timer_redun.init(period=13000, mode=Timer.ONE_SHOT, callback=cb_redundancy)    ### period = tx interval of primary board + 1 (for edge cases)
+timer_redun.init(period=15000, mode=Timer.ONE_SHOT, callback=cb_redundancy)    ### period = tx interval of primary board + 1 (for edge cases)
 
 # set callback for LoRa (recv as scheduled IR)
 lora.on_recv(cb_lora)
@@ -480,9 +485,13 @@ while True:
     current_time = time.mktime(time.localtime())
 
     if redun_timer_reset:
-        timer_redun.init(period=12000, mode=Timer.ONE_SHOT, callback=cb_redundancy)
+        timer_redun.init(period=15000, mode=Timer.ONE_SHOT, callback=cb_redundancy)
         redun_timer_reset =  False
-        print('timer reinit flag')
+        # if process_start_count == 1:
+        #     print('Process started')
+        #     process_start_count -= 1
+        # else:
+        #     print('timer reinit flag')
 
     if not cb_redundancy_done and cb_hb_done:
         rssi = lora.get_rssi()
@@ -498,7 +507,7 @@ while True:
         lora.recv()
         micropython.schedule(lora_rcv_exec, 0)  # process received msgs
         cb_hb_done = False
-    else:
+    elif cb_redundancy_done:
         SENSOR_STATUS = 0
         LIMITS_BROKEN = 0
         j = 4  # offset for am values in SENSOR_DATA
@@ -567,67 +576,13 @@ while True:
                 write_to_log("error limits broken: {}".format(e),
                             str(current_time))
             cb_redundancy_done = False
-            timer_redun.init(period=12000, mode=Timer.ONE_SHOT, callback=cb_redundancy)
+            timer_redun.init(period=15000, mode=Timer.ONE_SHOT, callback=cb_redundancy)
+            timer0.deinit() 
+            timer0.init(period=60000, mode=Timer.PERIODIC, callback=cb_hb)   
+            ### stop the heartbeat timer
             print('TImer reinitialized')
             micropython.schedule(lora_rcv_exec, 0)  # process received msgs
-        
-        # if cb_30_done:  # send the messages every 30 seconds
-        #     try:
-        #         sending_time = time.mktime(time.localtime())
-        #         # include sending timestamp twice; 1st timestamp for actual
-        #         # sending time, 2nd for calculation of confidence interval.
-        #         # 2nd timestamp is replaced with retransmitting timestamp
-        #         # in case of retransmission
-        #         msg += ustruct.pack(">L", sending_time)
-        #         msg += ustruct.pack(">L", sending_time)
-        #         msg += ustruct.pack(">L", crc32(0, msg, 72))
-        #         add_to_que(msg, current_time)
-        #         lora.send(que[0][0])
-        #         lora.recv()
-        #         if not LIMITS_BROKEN:
-        #             packet_no += 1
-        #         write_to_log("PKT {} sent".format(packet_no),
-        #                     str(time.mktime(time.localtime())))
-        #         start_time = current_time
-        #         timer1.init(period=retx_interval,
-        #                     mode=Timer.PERIODIC,
-        #                     callback=cb_retrans)
-        #         timer0.init(period=msg_interval,
-        #                     mode=Timer.ONE_SHOT,
-        #                     callback=cb_30)
 
-        #         # randomize the msg interval to avoid
-        #         # continous collision of packets
-        #         if random.random() >= 0.4:
-        #             # select time randomly with steps of 1000ms, because the
-        #             # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-        #             msg_interval = random.randrange(20000, 40000, 1000)
-        #             # select random time interval with step size of 1 sec
-        #             retx_interval = random.randrange(2000, 10000, 1000)
-        #     except Exception as e:
-        #         write_to_log("error cb_30_done: {}".format(e),
-        #                     str(current_time))
-        #     # reset timer boolean
-        #     cb_30_done = False
-        #     micropython.schedule(lora_rcv_exec, 0)  # process received msgs
-        # elif cb_retrans_done:  # retransmit every 5 secs for pkts with no ack
-        #     cb_retrans_done = False
-        #     try:
-        #         retransmit_count += 1
-        #         if que != []:
-        #             # add retransmission timestamp
-        #             r_time = time.mktime(time.localtime())
-        #             r_msg = ustruct.unpack(">13f2H2IL", que[0][0][-8:])
-        #             r_msg = ustruct.pack(">13f2H2IL", r_msg)
-        #             r_msg += ustruct.pack(">L", r_time)
-        #             r_msg += ustruct.pack(">L", crc32(0, r_msg, 72))
-        #             lora.send(r_msg)
-        #             lora.recv()
-        #             write_to_log("msg retransmitted",
-        #                         str(time.mktime(time.localtime())))
-        #         if retransmit_count >= 2:
-        #             timer1.deinit()
-        #             retransmit_count = 0
-        #     except Exception as e:
-        #         write_to_log("error retransmit: {}".format(e),
-        #                     str(current_time))
+    lora.recv()
+    micropython.schedule(lora_rcv_exec, 0)  # process received msgs
+        
