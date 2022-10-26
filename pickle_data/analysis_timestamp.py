@@ -1,6 +1,6 @@
 import pickle
 
-with open("log.pkl", "rb") as f:
+with open("log_exp15s_b_1.pkl", "rb") as f:
     data = pickle.load(f)
 
 board1_data = data[0]
@@ -38,11 +38,12 @@ def timestamp_calc(data):
     no_retr = 0
     retr = 0
     for i in range(len_data):
-        time_diff = data[i][3] - data[i][2]
-        if time_diff > 20:
-            no_retr += 1
-        else:
-            retr += 1
+        if data[i][1] < 100:
+            time_diff = data[i][3] - data[i][2]
+            if time_diff > 20:
+                no_retr += 1
+            else:
+                retr += 1
     return no_retr, retr
 
 
