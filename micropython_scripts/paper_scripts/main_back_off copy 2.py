@@ -223,6 +223,7 @@ def get_node_id(hex=False):
     else:
         return int(node_id, 16)
 
+
 def cb_redundancy(p):
     global cb_redundancy_done
     cb_redundancy_done = True
