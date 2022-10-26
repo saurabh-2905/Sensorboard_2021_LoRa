@@ -1,9 +1,9 @@
 # -------------------------------------------------------------------------------
 # authors: Florian Stechmann, Saurabh Band, Malavika Unnikrishnan
-# date: 10.08.2022
+# date: 13.10.2022
 # function: Code for esp32 board with lora module and sd card reader.
 #           Needed SD Card format is W95 FAT32 (LBA).
-#           Raw LoRa implementation for the paper. No retransmission, no
+#           Same as main_scratch.py, Raw LoRa plus retransmission plus
 #           random back-off.
 # -------------------------------------------------------------------------------
 
@@ -12,6 +12,7 @@ import machine
 import micropython
 import ustruct, ubinascii, uhashlib
 import time
+import random
 
 from scd30 import SCD30
 from lora import LoRa
@@ -288,8 +289,11 @@ cb_retrans_done = False
 cb_lora_recv = False
 
 # initial msg sending intervals
-msg_interval = 15000  # 30 sec -> 10 sec
-retx_interval = 3000  # 5 sec -> 3 sec
+# select time randomly with steps of 1000ms, because the
+# max on air time is 123ms and 390ms for SF7 and SF9 resp.
+msg_interval = random.randrange(12000, 18000, 500)
+# select random time interval with step size of 1 sec
+retx_interval = 3000
 
 # init process variables
 retransmit_count = 0
@@ -442,9 +446,6 @@ start_time = time.mktime(time.localtime())
 
 write_to_log("start measuring", str(time.mktime(time.localtime())))
 
-# initial sleep for sync
-time.sleep(12)
-
 while True:
     # get the current time of the script in seconds wrt the localtime
     current_time = time.mktime(time.localtime())
@@ -483,8 +484,7 @@ while True:
             else:
                 SENSOR_STATUS += 2**(i)
     try:
-        write_to_log(status_msg+str(CONNECTION_VAR),
-                     str(current_time))
+        # write_to_log(status_msg+str(CONNECTION_VAR), str(current_time))
         # get rssi for performance information
         rssi = lora.get_rssi()
         # prepare data to be sent
@@ -494,8 +494,8 @@ while True:
                            SENSOR_DATA[8], SENSOR_DATA[9], SENSOR_DATA[10],
                            SENSOR_DATA[11], rssi, SENSOR_STATUS, LIMITS_BROKEN,
                            packet_no, SENSORBOARD_ID)
-        msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
-        msg += ustruct.pack(">L", crc32(0, msg, 68))  # add 32-bit crc
+        # msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
+        # msg += ustruct.pack(">L", crc32(0, msg, 68))  # add 32-bit crc
 
         micropython.schedule(lora_rcv_exec, 0)  # process received msgs
     except Exception as e:
@@ -516,6 +516,14 @@ while True:
         micropython.schedule(lora_rcv_exec, 0)  # process received msgs
         if cb_30_done:  # send the messages every 30 seconds
             try:
+                sending_time = time.mktime(time.localtime())
+                # include sending timestamp twice; 1st timestamp for actual
+                # sending time, 2nd for calculation of confidence interval.
+                # 2nd timestamp is replaced with retransmitting timestamp
+                # in case of retransmission
+                msg += ustruct.pack(">L", sending_time)
+                msg += ustruct.pack(">L", sending_time)
+                msg += ustruct.pack(">L", crc32(0, msg, 72))
                 add_to_que(msg, current_time)
                 lora.send(que[0][0])
                 lora.recv()
@@ -530,8 +538,40 @@ while True:
                 timer0.init(period=msg_interval,
                             mode=Timer.ONE_SHOT,
                             callback=cb_30)
+
+                # randomize the msg interval to avoid
+                # continous collision of packets
+                if random.random() >= 0.4:
+                    # select time randomly with steps of 1000ms, because the
+                    # max on air time is 123ms and 390ms for SF7 and SF9 resp.
+                    msg_interval = random.randrange(12000, 18000, 500)
+                    # select random time interval with step size of 1 sec
+                    # retx_interval = random.randrange(2000, 10000, 1000)
             except Exception as e:
                 write_to_log("error cb_30_done: {}".format(e),
                              str(current_time))
             # reset timer boolean
             cb_30_done = False
+            micropython.schedule(lora_rcv_exec, 0)  # process received msgs
+        elif cb_retrans_done:  # retransmit every 5 secs for pkts with no ack
+            print(que)
+            cb_retrans_done = False
+            try:
+                retransmit_count += 1
+                if que != []:
+                    # add retransmission timestamp
+                    r_time = time.mktime(time.localtime())
+                    r_msg = ustruct.unpack(">13f2H2IL", que[0][0][:-8])
+                    r_msg = ustruct.pack(">13f2H2IL", r_msg)
+                    r_msg += ustruct.pack(">L", r_time)
+                    r_msg += ustruct.pack(">L", crc32(0, r_msg, 72))
+                    lora.send(r_msg)
+                    lora.recv()
+                    write_to_log("msg retransmitted",
+                                 str(time.mktime(time.localtime())))
+                if retransmit_count >= 2:
+                    timer1.deinit()
+                    retransmit_count = 0
+            except Exception as e:
+                write_to_log("error retransmit: {}".format(e),
+                             str(current_time))
