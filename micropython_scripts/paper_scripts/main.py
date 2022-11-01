@@ -249,8 +249,8 @@ def lora_rcv_exec(p):
                         values = ustruct.unpack(_pkng_frmt, msg[:-12])
                         id_received = values[16]
                         packet_no_received = values[15]
-                        timestamp_sent = list(ustruct.unpack(">L", msg[-8:-4]))[0]
-                        timestamp_retr = list(ustruct.unpack(">L", msg[-12:-8]))[0]
+                        timestamp_sent = list(ustruct.unpack(">L", msg[-12:-8]))[0]
+                        timestamp_retr = list(ustruct.unpack(">L", msg[-8:-4]))[0]
                         if id_received == 94420780:
                             cb_redundancy_done = False
                             print(id_received)
