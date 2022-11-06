@@ -4,7 +4,7 @@
 
 import pickle
 
-with open("log.pkl", "rb") as f:
+with open("log_exp15s_3.pkl", "rb") as f:
     data = pickle.load(f)
 
 board1_data = data[0]
