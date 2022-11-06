@@ -554,7 +554,6 @@ while True:
             cb_30_done = False
             micropython.schedule(lora_rcv_exec, 0)  # process received msgs
         elif cb_retrans_done:  # retransmit every 5 secs for pkts with no ack
-            print(que)
             cb_retrans_done = False
             try:
                 retransmit_count += 1

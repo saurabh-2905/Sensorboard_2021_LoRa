@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # authors: Florian Stechmann, Saurabh Band, Malavika Unnikrishnan
-# date: 13.10.2022
+# date: 06.11.2022
 # function: Code for esp32 board with lora module and sd card reader.
 #           Needed SD Card format is W95 FAT32 (LBA).
 #           Same as main_scratch.py, Raw LoRa plus retransmission plus
@@ -264,10 +264,16 @@ def lora_rcv_exec(p):
                 else:
                     recv_msg = msg.decode()
                     board_id, timestamp = recv_msg.split(',')
-                    if int(board_id) == SENSORBOARD_ID:
+                    board_id = int(board_id)
+                    if board_id == SENSORBOARD_ID:
                         for each_pkt in que:
                             if each_pkt[1] == int(timestamp):
                                 que.remove(each_pkt)
+                    elif board_id == 94420780:
+                        cb_redundancy_done = False
+                        redun_timer_reset = True
+                        timer_redun.deinit()
+                        packet_no = packet_no_received
             except Exception as e:
                 write_to_log("Lora msg process failure: {}".format(e),
                              str(time.mktime(time.localtime())))
@@ -472,7 +478,6 @@ except Exception:
 # initialize timer
 # Timer for heartbeat
 timer0.init(period=60000, mode=Timer.PERIODIC, callback=cb_hb)
-# write_to_log("msg sending timer activated", str(time.mktime(time.localtime())))
 
 timer_redun.init(period=41000, mode=Timer.ONE_SHOT, callback=cb_redundancy)    ### period = tx interval of primary board + 1 (for edge cases)
 
@@ -547,14 +552,14 @@ while True:
             write_to_log(status_msg+str(CONNECTION_VAR), str(current_time))
             # get rssi for performance information
             rssi = lora.get_rssi()
-            packet_no += 1   ### give the next number after the last packet no of primary board
+            packet_no += 1   # give the next number after the last packet no of primary board
             # prepare data to be sent
             msg = ustruct.pack(_pkng_frmt, SENSOR_DATA[0], SENSOR_DATA[1],
                                SENSOR_DATA[2], SENSOR_DATA[3], SENSOR_DATA[4],
                                SENSOR_DATA[5], SENSOR_DATA[6], SENSOR_DATA[7],
                                SENSOR_DATA[8], SENSOR_DATA[9], SENSOR_DATA[10],
-                               SENSOR_DATA[11], rssi, SENSOR_STATUS, LIMITS_BROKEN,
-                               packet_no, SENSORBOARD_ID)
+                               SENSOR_DATA[11], rssi, SENSOR_STATUS,
+                               LIMITS_BROKEN, packet_no, SENSORBOARD_ID)
 
             micropython.schedule(lora_rcv_exec, 0)  # process received msgs
         except Exception as e:
@@ -574,12 +579,30 @@ while True:
             except Exception as e:
                 write_to_log("error limits broken: {}".format(e),
                              str(current_time))
-            timer_redun.init(period=41000, mode=Timer.ONE_SHOT, callback=cb_redundancy)
+            timer_redun.init(period=41000,
+                             mode=Timer.ONE_SHOT, callback=cb_redundancy)
             timer0.deinit()
             timer0.init(period=60000, mode=Timer.PERIODIC, callback=cb_hb)
-            ### stop the heartbeat timer
-            print('TImer reinitialized')
+            # stop the heartbeat timer
+            print('Timer reinitialized')
             micropython.schedule(lora_rcv_exec, 0)  # process received msgs
+            try:
+                retransmit_count += 1
+                if que != []:
+                    # add retransmission timestamp
+                    r_time = time.mktime(time.localtime())
+                    r_msg = ustruct.unpack(">13f2H2IL", que[0][0][:-8])
+                    r_msg = ustruct.pack(">13f2H2IL", r_msg)
+                    r_msg += ustruct.pack(">L", r_time)
+                    r_msg += ustruct.pack(">L", crc32(0, r_msg, 72))
+                    lora.send(r_msg)
+                    lora.recv()
+                    write_to_log("msg retransmitted",
+                                 str(time.mktime(time.localtime())))
+                if retransmit_count >= 2:
+                    retransmit_count = 0
+            except Exception:
+                pass
 
     lora.recv()
     micropython.schedule(lora_rcv_exec, 0)  # process received msgs
