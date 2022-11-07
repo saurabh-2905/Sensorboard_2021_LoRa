@@ -491,11 +491,13 @@ write_to_log("start measuring", str(time.mktime(time.localtime())))
 
 while True:
     # get the current time of the script in seconds wrt the localtime
-    time.sleep(2)
+    # time.sleep(2)
     current_time = time.mktime(time.localtime())
+    micropython.schedule(lora_rcv_exec, 0)  # process received msgs
 
     if redun_timer_reset:
-        timer_redun.init(period=41000, mode=Timer.ONE_SHOT, callback=cb_redundancy)
+        timer_redun.init(period=41000,
+                         mode=Timer.ONE_SHOT, callback=cb_redundancy)
         redun_timer_reset = False
 
     if not cb_redundancy_done and cb_hb_done:
