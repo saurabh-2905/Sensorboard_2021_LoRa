@@ -479,7 +479,7 @@ except Exception:
 # Timer for heartbeat
 timer0.init(period=60000, mode=Timer.PERIODIC, callback=cb_hb)
 
-timer_redun.init(period=41000, mode=Timer.ONE_SHOT, callback=cb_redundancy)    ### period = tx interval of primary board + 1 (for edge cases)
+timer_redun.init(period=35000, mode=Timer.ONE_SHOT, callback=cb_redundancy)    ### period = tx interval of primary board + 1 (for edge cases)
 
 # set callback for LoRa (recv as scheduled IR)
 lora.on_recv(cb_lora)
@@ -496,7 +496,7 @@ while True:
     micropython.schedule(lora_rcv_exec, 0)  # process received msgs
 
     if redun_timer_reset:
-        timer_redun.init(period=41000,
+        timer_redun.init(period=35000,
                          mode=Timer.ONE_SHOT, callback=cb_redundancy)
         redun_timer_reset = False
 
@@ -581,7 +581,7 @@ while True:
             except Exception as e:
                 write_to_log("error limits broken: {}".format(e),
                              str(current_time))
-            timer_redun.init(period=41000,
+            timer_redun.init(period=35000,
                              mode=Timer.ONE_SHOT, callback=cb_redundancy)
             timer0.deinit()
             timer0.init(period=60000, mode=Timer.PERIODIC, callback=cb_hb)

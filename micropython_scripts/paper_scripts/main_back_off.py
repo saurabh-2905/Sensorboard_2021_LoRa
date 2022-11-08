@@ -291,7 +291,7 @@ cb_lora_recv = False
 # initial msg sending intervals
 # select time randomly with steps of 1000ms, because the
 # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-msg_interval = random.randrange(20000, 40000, 500)
+msg_interval = random.randrange(20000, 30000, 500)
 # select random time interval with step size of 1 sec
 retx_interval = 6000
 
@@ -544,7 +544,7 @@ while True:
                 if random.random() >= 0.4:
                     # select time randomly with steps of 1000ms, because the
                     # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-                    msg_interval = random.randrange(20000, 40000, 500)
+                    msg_interval = random.randrange(20000, 30000, 500)
                     # select random time interval with step size of 1 sec
                     # retx_interval = random.randrange(2000, 10000, 1000)
             except Exception as e:
