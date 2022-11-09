@@ -80,7 +80,7 @@ for i in range(len(pl_1)):
 for i in range(len(pl_2)):
     pdr_list.append(pl_2[i][0])
 
-pdr_faulty = len(pdr_list)/pdr_list[len(pdr_list)-1]
+pdr_faulty = len(pdr_list)
 
 # calculate pdr for faulty board with redundant board
 pdr_list2 = []
@@ -88,10 +88,10 @@ for i in range(len(pr)):
     pdr_list2.append(pr[i][0])
 pdr_list2 += pdr_list
 pdr_list2.sort()
-pdr_red = len(pdr_list2)/pdr_list2[len(pdr_list2)-1]
+pdr_red = len(pdr_list2)
 
-print("PDR faulty: " + str(pdr_faulty))
-print("PDR redundancy: " + str(pdr_red))
+print("Pkt no faulty: " + str(pdr_faulty))
+print("Pkt no redundancy: " + str(pdr_red))
 
 # create plot data
 # create x and y data for faulty board
@@ -106,7 +106,7 @@ hb_xdata = pck_list_hb
 hb_ydata = []
 for i in range(len(hb_xdata)):
     hb_xdata[i] = hb_xdata[i][1]
-    hb_ydata.append("NoTx")
+    hb_ydata.append("Heartbeat Tx")
 
 # create x and ydata for redundancy board data msgs,
 # as well as x and y data for faulty board, when it is
@@ -117,9 +117,9 @@ faulty2_xdata = []
 faulty2_ydata = []
 for i in range(len(red_xdata)):
     red_xdata[i] = red_xdata[i][1]
-    red_ydata.append("Tx")
+    red_ydata.append("Packet Tx")
     faulty2_xdata.append(red_xdata[i])
-    faulty2_ydata.append("NoTX")
+    faulty2_ydata.append("No Tx")
 
 # plot data (or don't)
 plot = 1
@@ -129,24 +129,25 @@ if plot:
     fig, (ax1, ax2) = plt.subplots(2, 1)
     ax1.grid(which='both')
     ax1.set_xlim(0, 3000)
-    ax1.set_xlabel("time in seconds")
-    ax1.set_ylabel("primary board")
+    ax1.set_xlabel("Time (seconds)")
+    ax1.set_title("Primary Board")
     ax1.plot(faulty_xdata, faulty_ydata, '+', color="green",
-             label="transmission")
+             label="Working")
     ax1.plot(faulty2_xdata, faulty2_ydata, '+', color="red",
-             label="no transmission")
+             label="Not working")
     ax1.legend(loc="center right")
     ax1.invert_yaxis()
+    ax1.set_yticklabels(["Tx", "No Tx"], rotation=45)
 
     ax2.grid(which='both', zorder=0)
     ax2.set_xlim(0, 3000)
-    ax2.set_xlabel("time in seconds")
-    ax2.set_ylabel("redundant board")
+    ax2.set_xlabel("Time (seconds)")
+    ax2.set_title("Redundant Board")
     ax2.plot(hb_xdata, hb_ydata, 'x', color="red",
-             label="heartbeat transmission")
+             label="Heartbeat transmission")
     ax2.plot(red_xdata, red_ydata, 'x', color="green",
-             label="transmission")
+             label="Packet transmission")
     ax2.legend(loc="center right")
-
-    plt.yticks(["NoTx", "Tx"], rotation=0)
+    ax2.set_yticklabels(["Heartbeat Tx", "Packet Tx"], rotation=45)
+    fig.tight_layout()
     plt.show()
