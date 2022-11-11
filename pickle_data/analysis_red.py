@@ -99,7 +99,7 @@ faulty_xdata = pl_1 + pl_2
 faulty_ydata = []
 for i in range(len(faulty_xdata)):
     faulty_xdata[i] = faulty_xdata[i][1]
-    faulty_ydata.append("Tx")
+    faulty_ydata.append("Packet received")
 
 # create x and y data for hb signals
 hb_xdata = pck_list_hb
@@ -119,14 +119,16 @@ for i in range(len(red_xdata)):
     red_xdata[i] = red_xdata[i][1]
     red_ydata.append("Packet Tx")
     faulty2_xdata.append(red_xdata[i])
-    faulty2_ydata.append("No Tx")
+    faulty2_ydata.append("No packet received")
 
 # plot data (or don't)
 plot = 1
 if plot:
-    plt.rcParams.update({'font.size': 12})
+    plt.rcParams.update({'font.size': 14})
+    plt.rcParams["font.family"] = "Times New Roman"
 
     fig, (ax1, ax2) = plt.subplots(2, 1)
+    fig.set_dpi(300.0)
     ax1.grid(which='both')
     ax1.set_xlim(0, 3000)
     ax1.set_xlabel("Time (seconds)")
@@ -137,17 +139,17 @@ if plot:
              label="Not working")
     ax1.legend(loc="center right")
     ax1.invert_yaxis()
-    ax1.set_yticklabels(["Tx", "No Tx"], rotation=45)
+    ax1.set_yticklabels(["Packet received", "No packet received"], rotation=45)
 
     ax2.grid(which='both', zorder=0)
     ax2.set_xlim(0, 3000)
     ax2.set_xlabel("Time (seconds)")
     ax2.set_title("Redundant Board")
     ax2.plot(hb_xdata, hb_ydata, 'x', color="red",
-             label="Heartbeat transmission")
+             label="Heartbeat received")
     ax2.plot(red_xdata, red_ydata, 'x', color="green",
-             label="Packet transmission")
+             label="Packet received")
     ax2.legend(loc="center right")
     ax2.set_yticklabels(["Heartbeat Tx", "Packet Tx"], rotation=45)
-    fig.tight_layout()
+    # fig.tight_layout()
     plt.show()
