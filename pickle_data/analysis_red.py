@@ -137,9 +137,9 @@ if plot:
              label="Working")
     ax1.plot(faulty2_xdata, faulty2_ydata, '+', color="red",
              label="Not working")
-    ax1.legend(loc="center right")
+    ax1.legend(loc="center", bbox_to_anchor=(1, 0.5))
     ax1.invert_yaxis()
-    ax1.set_yticklabels(["Packet received", "No packet received"], rotation=45)
+    ax1.set_yticklabels(["Packet\nreceived", "No packet\nreceived"])
 
     ax2.grid(which='both', zorder=0)
     ax2.set_xlim(0, 3000)
@@ -149,7 +149,7 @@ if plot:
              label="Heartbeat received")
     ax2.plot(red_xdata, red_ydata, 'x', color="green",
              label="Packet received")
-    ax2.legend(loc="center right")
-    ax2.set_yticklabels(["Heartbeat Tx", "Packet Tx"], rotation=45)
+    ax2.legend(loc="center", bbox_to_anchor=(1, 0.5))
+    ax2.set_yticklabels(["Heartbeat\nreceived", "Packet \nreceived"])
     # fig.tight_layout()
     plt.show()
