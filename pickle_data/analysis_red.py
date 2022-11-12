@@ -128,28 +128,27 @@ if plot:
     plt.rcParams["font.family"] = "Times New Roman"
 
     fig, (ax1, ax2) = plt.subplots(2, 1)
-    fig.set_dpi(300.0)
     ax1.grid(which='both')
     ax1.set_xlim(0, 3000)
     ax1.set_xlabel("Time (seconds)")
-    ax1.set_title("Primary Board")
-    ax1.plot(faulty_xdata, faulty_ydata, '+', color="green",
-             label="Working")
-    ax1.plot(faulty2_xdata, faulty2_ydata, '+', color="red",
-             label="Not working")
-    ax1.legend(loc="center", bbox_to_anchor=(1, 0.5))
+    ax1.set_title("Primary Board", fontsize=14)
+    u_w, = ax1.plot(faulty_xdata, faulty_ydata, '+', color="green",
+                    label="Working")
+    u_nw, = ax1.plot(faulty2_xdata, faulty2_ydata, '+', color="red",
+                     label="Not working")
+    ax1.legend(bbox_to_anchor=(0.5, -0.4), loc='lower center', ncol=2, fontsize=11)
     ax1.invert_yaxis()
     ax1.set_yticklabels(["Packet\nreceived", "No packet\nreceived"])
 
     ax2.grid(which='both', zorder=0)
     ax2.set_xlim(0, 3000)
     ax2.set_xlabel("Time (seconds)")
-    ax2.set_title("Redundant Board")
-    ax2.plot(hb_xdata, hb_ydata, 'x', color="red",
-             label="Heartbeat received")
-    ax2.plot(red_xdata, red_ydata, 'x', color="green",
-             label="Packet received")
-    ax2.legend(loc="center", bbox_to_anchor=(1, 0.5))
-    ax2.set_yticklabels(["Heartbeat\nreceived", "Packet \nreceived"])
-    # fig.tight_layout()
+    ax2.set_title("Redundant Board", fontsize=14)
+    l_hb, = ax2.plot(hb_xdata, hb_ydata, 'x', color="red",
+                     label="Heartbeat received")
+    l_pr, = ax2.plot(red_xdata, red_ydata, 'x', color="green",
+                     label="Packet received")
+    ax2.legend(bbox_to_anchor=(0.5, -0.4), ncol=2, loc="lower center",  fontsize=11)
+    ax2.set_yticklabels(["Heartbeat\nreceived", "Packet\nreceived"])
+    fig.tight_layout()
     plt.show()
