@@ -366,6 +366,7 @@ print("Receiving Packets......")
 threading.Timer(timer_interval, cb).start()
 all_values = []
 invalid_crcs = 0
+no_retr = True
 while True:
     recv_msg, prssi = receive()
     if len(recv_msg) == MESSAGE_LENGTH:
@@ -397,13 +398,19 @@ while True:
             #if packet_no_received == 0 and len(packet_list[old_id]) != 0:
             #    packet_list[old_id] = []
             #    restarts[old_id] += 1
-
+            no_retr = True
             # check if packet is a retransmission
             #if packet_no_received in packet_list[old_id]:
             #    packet_list[old_id].remove(packet_no_received)
             #    retransmitted_packets[id_received] += 1
-            packet_list[old_id].append((packet_no_received, prssi))
-
+            for i in range(len(packet_list[old_id])):
+                if packet_no_received == packet_list[old_id][i][0]:
+                    no_retr = False
+            if len(packet_list[old_id]) > 1:
+                if packet_no_received < packet_list[old_id][len(packet_list[old_id])-1][0]:
+                    no_retr = False
+            else:
+                packet_list[old_id].append((packet_no_received, prssi))
             # check if packets were lost
             #packets_yet_received = len(packet_list[old_id]) - 1
             #if packets_yet_received == packet_no_received:
@@ -430,8 +437,11 @@ while True:
                 elif i <= 11:
                     value_list[i] = round(value_list[i], 1)
             try:
-                send_mqtt(value_list, prssi)
-                print("Sent to MQTT")
+                if no_retr:
+                    send_mqtt(value_list, prssi)
+                    print("Sent to MQTT")
+                else:
+                    print("retransmission, not sent to mqtt")
                 print(value_list,
                       timestamp,
                       create_timestamp(receiver_timestamp))
@@ -454,7 +464,7 @@ while True:
             connect_mqtt()
             for j in range(len(_PBR_TOPICS)):
                 CLIENT.publish(topic=_PBR_TOPICS[j],
-                               payload=str(values[j]))
+                                payload=str(values[j]))
             values = list(values)
             # print values
             for i in range(len(values)):
