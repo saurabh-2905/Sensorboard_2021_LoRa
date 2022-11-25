@@ -238,8 +238,6 @@ def lora_rcv_exec(p):
                     for each_pkt in que:
                         if each_pkt[1] == int(timestamp):
                             que.remove(each_pkt)
-                write_to_log("Lora msg process",
-                             str(time.mktime(time.localtime())))
             except Exception as e:
                 write_to_log("Lora msg process failure: {}".format(e),
                              str(time.mktime(time.localtime())))
@@ -299,11 +297,6 @@ msg = ""
 
 # rcv_msg init
 rcv_msg = []
-
-# msg for log file
-start_msg = "Boot process was successfull! Starting initialization..."
-status_msg = "Current connection variables (CO2, CO, O2, BMP, AMs): "
-
 # packing format
 _pkng_frmt = ">13f2H2I"
 
@@ -344,15 +337,12 @@ SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 # establish UART connection
 try:
     uart = UART(1, baudrate=9600, tx=UART_TX, rx=UART_RX)
-    uart_msg = start_msg + " UART establshed"
-    write_to_log(uart_msg, str(time.mktime(time.localtime())))
 except Exception:
     UART_ESTABLISHED = 0
 
 # establish I2C Bus
 try:
     I2CBUS = I2C(1, sda=Pin(21), scl=Pin(22), freq=100000)
-    write_to_log("I2C establshed", str(time.mktime(time.localtime())))
 except Exception:
     I2C_ESTABLISHED = 0
     write_to_log("I2C init failed", str(time.mktime(time.localtime())))
@@ -361,9 +351,7 @@ except Exception:
 try:
     SPI_BUS = SoftSPI(baudrate=10000000, sck=Pin(18, Pin.OUT),
                       mosi=Pin(23, Pin.OUT), miso=Pin(19, Pin.IN))
-    write_to_log("SPI established", str(time.mktime(time.localtime())))
     lora = LoRa(SPI_BUS, True, cs=Pin(5, Pin.OUT), rx=Pin(2, Pin.IN))
-    write_to_log("LoRa established", str(time.mktime(time.localtime())))
 except Exception:
     LORA_ESTABLISHED = 0
     write_to_log("SPI and LoRa init failed",
@@ -373,56 +361,48 @@ except Exception:
 try:
     scd30 = SCD30(I2CBUS, SCD30_ADRR)
     scd30.start_continous_measurement()
-    write_to_log("CO2 initialized", str(time.mktime(time.localtime())))
 except Exception:
     CONNECTION_CO2 = 0
     write_to_log("CO2 init failed", str(time.mktime(time.localtime())))
 
 try:
     MCP_CO = MCP3221(I2CBUS, CO_ADRR)
-    write_to_log("CO initialized", str(time.mktime(time.localtime())))
 except Exception:
     CONNECTION_CO = 0
     write_to_log("CO init failed", str(time.mktime(time.localtime())))
 
 try:
     MCP_O2 = MCP3221(I2CBUS, O2_ADRR)
-    write_to_log("O2 initialized", str(time.mktime(time.localtime())))
 except Exception:
     CONNECTION_O2 = 0
     write_to_log("O2 failed", str(time.mktime(time.localtime())))
 
 try:
     BMP = BMP180(I2CBUS)
-    write_to_log("pressure initialized", str(time.mktime(time.localtime())))
 except Exception:
     CONNECTION_BMP = 0
     write_to_log("pressure failed", str(time.mktime(time.localtime())))
 
 try:
     AM2301_1 = AM2301(AM2301_1_ADRR)
-    write_to_log("AM1 initialized", str(time.mktime(time.localtime())))
 except Exception:
     CONNECTION_A1 = 0
     write_to_log("AM1 failed", str(time.mktime(time.localtime())))
 
 try:
     AM2301_2 = AM2301(AM2301_2_ADRR)
-    write_to_log("AM2 initialized", str(time.mktime(time.localtime())))
 except Exception:
     CONNECTION_A2 = 0
     write_to_log("AM2 failed", str(time.mktime(time.localtime())))
 
 try:
     AM2301_3 = AM2301(AM2301_3_ADRR)
-    write_to_log("AM3 initialized", str(time.mktime(time.localtime())))
 except Exception:
     CONNECTION_A3 = 0
     write_to_log("AM3 failed", str(time.mktime(time.localtime())))
 
 try:
     AM2301_4 = AM2301(AM2301_4_ADRR)
-    write_to_log("AM4 initialized", str(time.mktime(time.localtime())))
 except Exception:
     CONNECTION_A4 = 0
     write_to_log("AM4 failed", str(time.mktime(time.localtime())))
@@ -431,15 +411,12 @@ except Exception:
 # initialize timer
 # Timer for sending msgs with measurement values + timestamp + crc
 timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
-write_to_log("msg sending timer activated", str(time.mktime(time.localtime())))
 
 # set callback for LoRa (recv as scheduled IR)
 lora.on_recv(cb_lora)
 
 # get the start time of the script in seconds wrt the localtime
 start_time = time.mktime(time.localtime())
-
-write_to_log("start measuring", str(time.mktime(time.localtime())))
 
 while True:
     # get the current time of the script in seconds wrt the localtime
@@ -504,8 +481,6 @@ while True:
                 lora.send(msg)
                 lora.recv()
                 packet_no += 1
-                write_to_log("PKT {} sent, Limits broken".format(packet_no),
-                             str(time.mktime(time.localtime())))
             except Exception as e:
                 write_to_log("error limits broken: {}".format(e),
                              str(current_time))
@@ -517,8 +492,6 @@ while True:
                 lora.recv()
                 if not LIMITS_BROKEN:
                     packet_no += 1
-                write_to_log("PKT {} sent".format(packet_no),
-                             str(time.mktime(time.localtime())))
                 start_time = current_time
                 timer1.init(period=retx_interval,
                             mode=Timer.PERIODIC,
@@ -545,8 +518,6 @@ while True:
                 if que != []:
                     lora.send(que[0][0])
                     lora.recv()
-                    write_to_log("msg retransmitted",
-                                 str(time.mktime(time.localtime())))
                 if retransmit_count >= 2:
                     timer1.deinit()
                     retransmit_count = 0

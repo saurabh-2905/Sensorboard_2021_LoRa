@@ -1,10 +1,10 @@
 # -------------------------------------------------------------------------------
 # author: Florian Stechmann, Malavika Unnikrishnan, Saurabh Band
-# date: 20.09.2022
+# date: 25.11.2022
 # function: Central LoRa receiver. Pushes data via MQTT to the Backend.
 # -------------------------------------------------------------------------------
 
-from gui import PBR_Control
+# from gui import PBR_Control
 
 import paho.mqtt.client as mqtt
 
@@ -224,7 +224,7 @@ def send_cmd(sema1):
     try:
         with open("temp", "r") as f:
             new_values = f.read()
-    except Exception as e:
+    except Exception:
         sema1.release()
     sema1.release()
     new_values = new_values.split(";")
@@ -233,7 +233,8 @@ def send_cmd(sema1):
     tvs_send = [float(new_values[0]), float(new_values[1]),
                 float(new_values[2]), float(new_values[3])]
     tv_msg = struct.pack(pbr_ack_decoding, 1, pump_nr, pump_amount,
-                         tvs_send[0], tvs_send[1], tvs_send[2], tvs_send[3], 0, PBR_ID)
+                         tvs_send[0], tvs_send[1], tvs_send[2],
+                         tvs_send[3], 0, PBR_ID)
     tv_msg += struct.pack(">L", crc32(0, tv_msg, 34))
     send(tv_msg)
     sema1.acquire()
@@ -280,35 +281,21 @@ sensorboard_list = dict()
 for i in range(len(board_ids)):
     sensorboard_list[board_ids[i]] = 0
 
-# packet counter for each board
+# packet list for each board
 packet_list = []
 for i in range(len(board_ids)):
     packet_list.append([])
 
-# list for storing longterm data
-data_list = []
+# packet counter for each board
+packet_counter = []
 for i in range(len(board_ids)):
-    data_list.append([])
-
-# counts the packets missed
-packets_missed = dict()
-for i in range(len(board_ids)):
-    packets_missed[board_ids[i]] = 0
-
-# counts retransmitted packets
-retransmitted_packets = dict()
-for i in range(len(board_ids)):
-    retransmitted_packets[board_ids[i]] = 0
+    packet_counter.append(0)
 
 # Holds all values for the working/not working sensors.
 connections = [0, 0, 0, 0, 0, 0, 0, 0]
 sensor_connections = []
 for i in range(len(board_ids)):
     sensor_connections.append(connections)
-
-restarts = []
-for i in range(len(board_ids)):
-    restarts.append(0)
 
 # Setting up MQTT
 MQTT_SERVER = "192.168.30.17"
@@ -318,8 +305,12 @@ CLIENT = mqtt.Client()
 timer_interval = 90
 
 # receive parameters
-MESSAGE_LENGTH = 72
-_pkng_frmt = ">13f2H2I"
+MESSAGE_LENGTH = 72  # length of messages received from boards
+_pkng_frmt = ">13f2H2I"  # packet format without timestamp and crc (2L)
+
+# init start values
+invalid_crcs = 0
+no_retr = True
 
 # ------------------------ pbr constants --------------------------------------
 
@@ -341,6 +332,15 @@ _PBR_STATUS = "pbr1/status"
 
 # number of pbr measurement values
 no_meas_pbr = 11
+
+# init pbr data list
+pbr_packets = []
+
+# indicating whether the receive pbr packet is a retransmissitted one
+pbr_no_retr = True
+
+# init pbr packet counter
+pbr_pck_counter = 0
 
 # init signal count for pbr
 signal_count_pbr = 0
@@ -364,9 +364,6 @@ connect_mqtt()
 print("Receiving Packets......")
 # Start of loop
 threading.Timer(timer_interval, cb).start()
-all_values = []
-invalid_crcs = 0
-no_retr = True
 while True:
     recv_msg, prssi = receive()
     if len(recv_msg) == MESSAGE_LENGTH:
@@ -385,52 +382,46 @@ while True:
             id_received = values[16]
             packet_no_received = values[15]
             timestamp = list(struct.unpack(">L", recv_msg[-8:-4]))
+
+            # create timestampt with receiving time
             receiver_timestamp = time.localtime()
             rx_datetime = create_timestamp(receiver_timestamp)
+
+            # create old_id, which is the ID from a sensorboard converted
+            # to a number defined in the config file (0 to 6)
+            old_id = map_board_ids(id_received)-1
 
             # send ACK
             send(str(id_received) + "," + str(timestamp[0]))
 
+            # reset value for indicating a retransmissitted message
+            no_retr = True
+
+            # check if the received packet is coherent with the
+            # before received packets
+            if packet_no_received == 0:
+                packet_counter[old_id] = packet_no_received
+            elif packet_no_received > packet_counter[old_id]:
+                packet_counter[old_id] = packet_no_received
+            else:
+                no_retr = False
+
             # add heartbeat
             sensorboard_list[id_received] += 1
 
-            old_id = map_board_ids(id_received) - 1
-            #if packet_no_received == 0 and len(packet_list[old_id]) != 0:
-            #    packet_list[old_id] = []
-            #    restarts[old_id] += 1
-            no_retr = True
-            # check if packet is a retransmission
-            #if packet_no_received in packet_list[old_id]:
-            #    packet_list[old_id].remove(packet_no_received)
-            #    retransmitted_packets[id_received] += 1
-            for i in range(len(packet_list[old_id])):
-                if packet_no_received == packet_list[old_id][i][0]:
-                    no_retr = False
-            if len(packet_list[old_id]) > 1:
-                if packet_no_received < packet_list[old_id][len(packet_list[old_id])-1][0]:
-                    no_retr = False
-            else:
-                packet_list[old_id].append((packet_no_received, prssi))
-            # check if packets were lost
-            #packets_yet_received = len(packet_list[old_id]) - 1
-            #if packets_yet_received == packet_no_received:
-            #    packets_missed[id_received] = 0
-            #elif packets_yet_received < packet_no_received:
-            #    lost_packets = packet_no_received - packets_yet_received
-            #    packets_missed[id_received] = lost_packets
+            packet_list[old_id].append((packet_no_received, prssi, timestamp))
 
-            #data_list[old_id].append((id_received, packet_no_received,
-            #                          timestamp[0], prssi,
-            #                          rx_datetime, invalid_crcs))
-            with open("log.pkl", "wb") as f:
+            # write all data to a pickle file for later processing
+            with open("log_sensorboards.pkl", "wb") as f:
                 pickle.dump(packet_list, f)
+
             write_to_log_time("Received ", str(timestamp[0]),
                               str(rx_datetime))
 
             value_list = list(values)
 
             # Round values to visualize the actual
-            # data that goes to the backend
+            # data that is send to the backend
             for i in range(len(value_list)):
                 if i <= 3:
                     value_list[i] = round(value_list[i], 2)
@@ -442,53 +433,82 @@ while True:
                     print("Sent to MQTT")
                 else:
                     print("retransmission, not sent to mqtt")
-                print(value_list,
-                      timestamp,
-                      create_timestamp(receiver_timestamp))
+                print(value_list, timestamp, rx_datetime)
             except Exception:
                 print("---------------- UNKOWN_BOARD_ID: " +
                       str(values[16]) + " ----------------")
     elif len(recv_msg) == pbr_msg_length:
         received_crc_pbr = struct.unpack(">L", recv_msg[-4:])[0]
         if received_crc_pbr == crc32(0, recv_msg[:-4], pbr_msg_length-4):
-            # send ACK
+            # retrieve data from msg
             values = struct.unpack(pbr_msg_decoding, recv_msg[:-8])
             timestamp = list(struct.unpack(">L", recv_msg[-8:-4]))
             id_received = values[18]
+            pbr_pck_no = values[17]
+
+            # create timestampt with receiving time
+            receiver_timestamp = time.localtime()
+            rx_datetime = create_timestamp(receiver_timestamp)
+
+            # prepare ack according to set format
             ack_msg = struct.pack(pbr_ack_decoding, 0, 0, 0, 0, 0, 0, 0,
                                   timestamp[0], id_received)
             ack_msg += struct.pack(">L", crc32(0, ack_msg, 34))
+
+            # send ack
             send(ack_msg)
+
+            pbr_no_retr = True
+
+            # check whether the received pbr packet is a retransmission
+            if pbr_pck_no == 0:
+                pbr_pck_counter = pbr_pck_no
+            elif pbr_pck_no > pbr_pck_counter:
+                pbr_pck_counter = pbr_pck_no
+            else:
+                pbr_no_retr = False
+
+            # save data for later processing
+            pbr_packets.append((values, prssi, timestamp))
+
+            # write all data to a pickle file for later processing
+            with open("log_pbr.pkl", "wb") as g:
+                pickle.dump(pbr_packets, g)
+
+            # increment counter, since packet is successfully
+            # received and processed
             signal_count_pbr += 1
-            # send data to backend
-            connect_mqtt()
-            for j in range(len(_PBR_TOPICS)):
-                CLIENT.publish(topic=_PBR_TOPICS[j],
-                                payload=str(values[j]))
+
+            # round values for database and visualisation
             values = list(values)
-            # print values
             for i in range(len(values)):
                 values[i] = round(values[i], 2)
-            print("PBR: ", values, timestamp)
+
+            # send data to backend if pck is no retransmission
+            if pbr_no_retr:
+                connect_mqtt()
+                for j in range(len(_PBR_TOPICS)):
+                    CLIENT.publish(topic=_PBR_TOPICS[j],
+                                   payload=str(values[j]))
+                print("PBR: ", values, timestamp, rx_datetime)
+            else:
+                print("PBR retransmission: ", values, timestamp, rx_datetime)
     else:
-        print(len(recv_msg))
-    send_cmd(sema)
+        print("Messsage not belonging to the system with length: "
+              + len(recv_msg))
+    # send_cmd(sema)
     # checks if any boards are not working
     if cb_timer_done:
-        #pbr_gui.gui.update()
         try:
+            print("------ status message START ------")
             print("Invalid CRCs since last start: " + str(invalid_crcs))
             i = 0
+
+            # checks if any board stopped working
             for each_board in list(sensorboard_list.keys()):
-                print(str(each_board) + ":")
+                print("Board with ID " + str(each_board) + ":")
                 old_board_id = map_board_ids(each_board)
                 signal_count = sensorboard_list[each_board]
-                print("packets received: " + str(len(packet_list[i])))
-                print("packets missed: ",
-                      packets_missed[each_board])
-                print("packets retransmitted: ",
-                      retransmitted_packets[each_board])
-                print("restarts: ", restarts[i])
                 if signal_count < 1:
                     print("Board {} not working".format(old_board_id))
                     CLIENT.publish(topic=_Failed_times.format(
@@ -500,6 +520,7 @@ while True:
                 sensorboard_list[each_board] = 0
                 i += 1
 
+            # checks if the PBR Board is working
             if signal_count_pbr < 1:
                 print("PBR Board not working")
                 CLIENT.publish(topic=_PBR_STATUS, payload="10000")
@@ -507,7 +528,8 @@ while True:
                 print("PBR signal count:", signal_count_pbr)
                 CLIENT.publish(topic=_PBR_STATUS, payload="1000")
             signal_count_pbr = 0
-            send_cmd(sema)
+            print("------ status message END ------")
+            # send_cmd(sema)
         except Exception as e:
             print(str(e))
         cb_timer_done = False
