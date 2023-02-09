@@ -494,8 +494,6 @@ while True:
                            SENSOR_DATA[8], SENSOR_DATA[9], SENSOR_DATA[10],
                            SENSOR_DATA[11], rssi, SENSOR_STATUS, LIMITS_BROKEN,
                            packet_no, SENSORBOARD_ID)
-        # msg += ustruct.pack(">L", current_time)  # add timestamp to the msg
-        # msg += ustruct.pack(">L", crc32(0, msg, 68))  # add 32-bit crc
 
         micropython.schedule(lora_rcv_exec, 0)  # process received msgs
     except Exception as e:
@@ -574,4 +572,3 @@ while True:
             except Exception as e:
                 write_to_log("error retransmit: {}".format(e),
                              str(current_time))
-

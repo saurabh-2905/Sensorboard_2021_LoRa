@@ -229,22 +229,46 @@ def cb_redundancy(p):
     cb_redundancy_done = True
 
 
-def lora_rcv_exec(p):
+def clear_r_data(p):
+    global rcv_msg, tmp_data
+    rcv_msg = []
+    tmp_data = 0
+
+
+def get_new_data(p):
+    global rcv_msg, tmp_data
+    tmp_data = rcv_msg[p]
+
+
+def check_data(r_data, m_data):
+    for i in range(len(m_data)):
+        rel_diff = m_data[i]/r_data[i]
+        if rel_diff > 1:
+            rel_diff = rel_diff - 1
+        else:
+            rel_diff = 1 - rel_diff
+        if rel_diff > 0.25:
+            return True
+        else:
+            return False
+
+
+def lora_rcv_exec():
     """
     Processed all received msgs.
     """
-    global cb_lora_recv, rcv_msg, cb_redundancy_done, redun_timer_reset, packet_no #start_process
+    global cb_lora_recv, rcv_msg, cb_redundancy_done, redun_timer_reset, packet_no, comp_data, tmp_data
+    data = []
     if cb_lora_recv:
         cb_lora_recv = False
         for i in range(len(rcv_msg)):
-            msg = rcv_msg[i]
+            micropython.schedule(get_new_data, i)
+            msg = tmp_data
             print('received:', len(msg))
             try:
                 if len(msg) == MESSAGE_LENGTH:
                     received_crc = ustruct.unpack(">L", msg[-4:])[0]
-                    if received_crc != crc32(0, msg[:-4], MESSAGE_LENGTH-4):
-                        print("Invalid CRC32 in msg")
-                    else:
+                    if received_crc == crc32(0, msg[:-4], MESSAGE_LENGTH-4):
                         # exclude timstamp and crc (8 bytes) to get msg
                         values = ustruct.unpack(_pkng_frmt, msg[:-12])
                         id_received = values[16]
@@ -252,16 +276,16 @@ def lora_rcv_exec(p):
                         timestamp_sent = list(ustruct.unpack(">L", msg[-12:-8]))[0]
                         timestamp_retr = list(ustruct.unpack(">L", msg[-8:-4]))[0]
                         if id_received == 94420780:
-                            cb_redundancy_done = False
-                            print(id_received)
-                            print('timestamps', timestamp_sent, timestamp_retr)
-                            if timestamp_sent - timestamp_retr == 0:
-                                redun_timer_reset = True
-                                timer_redun.deinit()
-                                packet_no = packet_no_received
-                            else:
-                                print('retransmitted')
+                            if values[13] == 0:  # check if any sensor failed
+                                cb_redundancy_done = False
+                                print(id_received)
+                                print('timestamps', timestamp_sent, timestamp_retr)
+                                if timestamp_sent - timestamp_retr == 0:  # else retx
+                                    packet_no = packet_no_received
+                                    comp_data = True
+                                    data.append(values)  # append data to check later
                 else:
+                    # for ACKs from router
                     recv_msg = msg.decode()
                     board_id, timestamp = recv_msg.split(',')
                     board_id = int(board_id)
@@ -274,10 +298,11 @@ def lora_rcv_exec(p):
                         redun_timer_reset = True
                         timer_redun.deinit()
                         packet_no = packet_no_received
-            except Exception as e:
-                write_to_log("Lora msg process failure: {}".format(e),
+            except Exception:
+                write_to_log("Lora msg process failure ",
                              str(time.mktime(time.localtime())))
-        rcv_msg = []
+        micropython.schedule(clear_r_data, 0)
+    return data
 
 
 # ------------------------ constants and variables ----------------------------
@@ -315,14 +340,16 @@ am_hum = 0
 # list for measurements values
 que = []
 
+# temporary data for receive process
+tmp_data = 0
+
 # init cb booleans
 cb_hb_done = False
 cb_retrans_done = False
 cb_lora_recv = False
-cb_redundancy_done = False   ### True: will tx pkts, False: will tx hb  
-redun_timer_reset = False     ### to indicate if timer complete or packet received
-# start_process = False
-# process_start_count = 1
+comp_data = False  # compare own data to data of primary board
+cb_redundancy_done = False  # True: will tx pkts, False: will tx hb
+redun_timer_reset = False  # to indicate if timer complete or packet received
 
 # initial msg sending intervals
 # select time randomly with steps of 1000ms, because the
@@ -479,7 +506,8 @@ except Exception:
 # Timer for heartbeat
 timer0.init(period=60000, mode=Timer.PERIODIC, callback=cb_hb)
 
-timer_redun.init(period=41000, mode=Timer.ONE_SHOT, callback=cb_redundancy)    ### period = tx interval of primary board + 1 (for edge cases)
+# period = tx interval of primary board + 1 (for edge cases)
+timer_redun.init(period=41000, mode=Timer.ONE_SHOT, callback=cb_redundancy)
 
 # set callback for LoRa (recv as scheduled IR)
 lora.on_recv(cb_lora)
@@ -489,11 +517,12 @@ start_time = time.mktime(time.localtime())
 
 write_to_log("start measuring", str(time.mktime(time.localtime())))
 
+c_data = []
+
 while True:
     # get the current time of the script in seconds wrt the localtime
-    # time.sleep(2)
     current_time = time.mktime(time.localtime())
-    micropython.schedule(lora_rcv_exec, 0)  # process received msgs
+    c_data.append(lora_rcv_exec())  # process received msgs
 
     if redun_timer_reset:
         timer_redun.init(period=41000,
@@ -512,10 +541,12 @@ while True:
         print('heartbeat')
         lora.send(hb_msg)
         lora.recv()
-        micropython.schedule(lora_rcv_exec, 0)  # process received msgs
+        c_data.append(lora_rcv_exec())  # process received msgs
         cb_hb_done = False
-    elif cb_redundancy_done:
+    elif cb_redundancy_done or comp_data:
         cb_redundancy_done = False
+        comp_data = False
+        send_data = True
         SENSOR_STATUS = 0
         LIMITS_BROKEN = 0
         j = 4  # offset for am values in SENSOR_DATA
@@ -539,10 +570,9 @@ while True:
                     SENSOR_DATA[j] = am_temp
                     SENSOR_DATA[j+1] = am_hum
                     j += 2
-            except Exception as e:
+            except Exception:
                 CONNECTION_VAR[i] = 0
-                write_to_log("failed {}: {}".format(SENSORS_LIST[i], e),
-                             str(current_time))
+                write_to_log("failed to measure at", str(current_time))
 
             if not CONNECTION_VAR[i]:
                 # sensor failed
@@ -551,10 +581,19 @@ while True:
                 else:
                     SENSOR_STATUS += 2**(i)
         try:
+            if comp_data:
+                big_diff = check_data(c_data, SENSOR_DATA)
+                if not big_diff:  # dont send data if the difference is small
+                    send_data = False
+                else:  # ??
+                    redun_timer_reset = True
+                    timer_redun.deinit()
+
             write_to_log(status_msg+str(CONNECTION_VAR), str(current_time))
             # get rssi for performance information
             rssi = lora.get_rssi()
-            packet_no += 1   # give the next number after the last packet no of primary board
+            # give the next number after the last packet no of primary board
+            packet_no += 1
             # prepare data to be sent
             msg = ustruct.pack(_pkng_frmt, SENSOR_DATA[0], SENSOR_DATA[1],
                                SENSOR_DATA[2], SENSOR_DATA[3], SENSOR_DATA[4],
@@ -563,11 +602,11 @@ while True:
                                SENSOR_DATA[11], rssi, SENSOR_STATUS,
                                LIMITS_BROKEN, packet_no, SENSORBOARD_ID)
 
-            micropython.schedule(lora_rcv_exec, 0)  # process received msgs
-        except Exception as e:
-            write_to_log("error msg packing: {}".format(e), str(current_time))
+            c_data.append(lora_rcv_exec())  # process received msgs
+        except Exception:
+            write_to_log("error msg packing ", str(current_time))
 
-        if LORA_ESTABLISHED:
+        if LORA_ESTABLISHED and send_data:
             try:
                 msg += ustruct.pack(">L", current_time)
                 msg += ustruct.pack(">L", current_time)
@@ -576,18 +615,17 @@ while True:
                 print('packet')
                 lora.send(msg)
                 lora.recv()
-                write_to_log("PKT {} sent, Limits broken".format(packet_no),
+                write_to_log("PKT sent, Limits broken ",
                              str(time.mktime(time.localtime())))
-            except Exception as e:
-                write_to_log("error limits broken: {}".format(e),
-                             str(current_time))
+            except Exception:
+                write_to_log("error limits broken ", str(current_time))
             timer_redun.init(period=41000,
                              mode=Timer.ONE_SHOT, callback=cb_redundancy)
             timer0.deinit()
             timer0.init(period=60000, mode=Timer.PERIODIC, callback=cb_hb)
             # stop the heartbeat timer
             print('Timer reinitialized')
-            micropython.schedule(lora_rcv_exec, 0)  # process received msgs
+            lora_rcv_exec()  # process received msgs
             try:
                 retransmit_count += 1
                 if que != []:
@@ -607,5 +645,4 @@ while True:
                 pass
 
     lora.recv()
-    micropython.schedule(lora_rcv_exec, 0)  # process received msgs
-
+    c_data.append(lora_rcv_exec())  # process received msgs
