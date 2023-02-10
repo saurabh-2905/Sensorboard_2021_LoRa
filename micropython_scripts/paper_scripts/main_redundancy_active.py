@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # authors: Florian Stechmann, Saurabh Band, Malavika Unnikrishnan
-# date: 06.11.2022
+# date: 10.02.2023
 # function: Code for esp32 board with lora module and sd card reader.
 #           Needed SD Card format is W95 FAT32 (LBA).
 #           Same as main_scratch.py, Raw LoRa plus retransmission plus
@@ -230,40 +230,53 @@ def cb_redundancy(p):
 
 
 def clear_r_data(p):
+    """
+    Clear data as atomic func
+    """
     global rcv_msg, tmp_data
     rcv_msg = []
     tmp_data = 0
 
 
 def get_new_data(p):
+    """
+    store received data at p in tmp_data for furhter process
+    """
     global rcv_msg, tmp_data
     tmp_data = rcv_msg[p]
 
 
-def check_data(r_data, m_data):
+def check_data(r_data, m_data, p=0.25):
+    """
+    r_data: data that is to be checked (that is received from PB)
+    m_data: data from this boards measurements
+    Calculates the relative error. Returns True if the difference is
+    bigger than p (rel) and False otherwise.
+    """
     for i in range(len(m_data)):
         rel_diff = m_data[i]/r_data[i]
         if rel_diff > 1:
             rel_diff = rel_diff - 1
         else:
             rel_diff = 1 - rel_diff
-        if rel_diff > 0.25:
+        # if relative difference is greater than p (rel) return True
+        if rel_diff > p:
             return True
-        else:
-            return False
+    return False
 
 
 def lora_rcv_exec():
     """
-    Processed all received msgs.
+    Processes all received msgs.
     """
     global cb_lora_recv, rcv_msg, cb_redundancy_done, redun_timer_reset, packet_no, comp_data, tmp_data
-    data = []
+    data = 0  # init with zero for later
     if cb_lora_recv:
         cb_lora_recv = False
         for i in range(len(rcv_msg)):
             micropython.schedule(get_new_data, i)
             msg = tmp_data
+            comp_data = False  # set to false for coherency
             print('received:', len(msg))
             try:
                 if len(msg) == MESSAGE_LENGTH:
@@ -282,8 +295,8 @@ def lora_rcv_exec():
                                 print('timestamps', timestamp_sent, timestamp_retr)
                                 if timestamp_sent - timestamp_retr == 0:  # else retx
                                     packet_no = packet_no_received
-                                    comp_data = True
-                                    data.append(values)  # append data to check later
+                                    comp_data = True  # compare data with own measurements
+                                    data = values  # only use latest data
                 else:
                     # for ACKs from router
                     recv_msg = msg.decode()
@@ -517,12 +530,17 @@ start_time = time.mktime(time.localtime())
 
 write_to_log("start measuring", str(time.mktime(time.localtime())))
 
-c_data = []
+# init data to compare with zero
+# stays zero if there are no values to be checked
+c_data = 0
+
 
 while True:
     # get the current time of the script in seconds wrt the localtime
     current_time = time.mktime(time.localtime())
-    c_data.append(lora_rcv_exec())  # process received msgs
+    tmp = lora_rcv_exec()  # process received msgs
+    if not tmp == 0:
+        c_data = tmp
 
     if redun_timer_reset:
         timer_redun.init(period=41000,
@@ -541,7 +559,9 @@ while True:
         print('heartbeat')
         lora.send(hb_msg)
         lora.recv()
-        c_data.append(lora_rcv_exec())  # process received msgs
+        tmp = lora_rcv_exec()  # process received msgs
+        if not tmp == 0:
+            c_data = tmp
         cb_hb_done = False
     elif cb_redundancy_done or comp_data:
         cb_redundancy_done = False
@@ -581,11 +601,14 @@ while True:
                 else:
                     SENSOR_STATUS += 2**(i)
         try:
+            # check data from pb if receveived without sensor error
             if comp_data:
-                big_diff = check_data(c_data, SENSOR_DATA)
+                # big_diff == True => diff btw c_data and SENSOR_DATA
+                # is greater than 0.25 (or whatever value is set)
+                big_diff = check_data(c_data, SENSOR_DATA, 0.25)
                 if not big_diff:  # dont send data if the difference is small
                     send_data = False
-                else:  # ??
+                else:  # correct?
                     redun_timer_reset = True
                     timer_redun.deinit()
 
@@ -602,7 +625,9 @@ while True:
                                SENSOR_DATA[11], rssi, SENSOR_STATUS,
                                LIMITS_BROKEN, packet_no, SENSORBOARD_ID)
 
-            c_data.append(lora_rcv_exec())  # process received msgs
+            tmp = lora_rcv_exec()  # process received msgs
+            if not tmp == 0:
+                c_data = tmp
         except Exception:
             write_to_log("error msg packing ", str(current_time))
 
@@ -625,7 +650,9 @@ while True:
             timer0.init(period=60000, mode=Timer.PERIODIC, callback=cb_hb)
             # stop the heartbeat timer
             print('Timer reinitialized')
-            lora_rcv_exec()  # process received msgs
+            tmp = lora_rcv_exec()  # process received msgs
+            if not tmp == 0:
+                c_data = tmp
             try:
                 retransmit_count += 1
                 if que != []:
@@ -645,4 +672,6 @@ while True:
                 pass
 
     lora.recv()
-    c_data.append(lora_rcv_exec())  # process received msgs
+    tmp = lora_rcv_exec()  # process received msgs
+    if not tmp == 0:
+        c_data = tmp
