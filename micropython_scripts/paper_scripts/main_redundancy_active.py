@@ -565,7 +565,6 @@ while True:
         cb_hb_done = False
     elif cb_redundancy_done or comp_data:
         cb_redundancy_done = False
-        comp_data = False
         send_data = True
         SENSOR_STATUS = 0
         LIMITS_BROKEN = 0
@@ -603,20 +602,24 @@ while True:
         try:
             # check data from pb if receveived without sensor error
             if comp_data:
+                comp_data = False
                 # big_diff == True => diff btw c_data and SENSOR_DATA
                 # is greater than 0.25 (or whatever value is set)
-                big_diff = check_data(c_data, SENSOR_DATA, 0.25)
+                big_diff = check_data(c_data, SENSOR_DATA, 0.20)
                 if not big_diff:  # dont send data if the difference is small
                     send_data = False
-                else:  # correct?
+                else:
                     redun_timer_reset = True
                     timer_redun.deinit()
 
             write_to_log(status_msg+str(CONNECTION_VAR), str(current_time))
             # get rssi for performance information
             rssi = lora.get_rssi()
-            # give the next number after the last packet no of primary board
-            packet_no += 1
+
+            if cb_redundancy_done:
+                # give the next number after the last packet no of primary board
+                packet_no += 1
+
             # prepare data to be sent
             msg = ustruct.pack(_pkng_frmt, SENSOR_DATA[0], SENSOR_DATA[1],
                                SENSOR_DATA[2], SENSOR_DATA[3], SENSOR_DATA[4],
