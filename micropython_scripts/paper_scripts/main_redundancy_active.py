@@ -277,7 +277,7 @@ def lora_rcv_exec():
             micropython.schedule(get_new_data, i)
             msg = tmp_data
             comp_data = False  # set to false for coherency
-            print('received:', len(msg))
+            print(msg)
             try:
                 if len(msg) == MESSAGE_LENGTH:
                     received_crc = ustruct.unpack(">L", msg[-4:])[0]
