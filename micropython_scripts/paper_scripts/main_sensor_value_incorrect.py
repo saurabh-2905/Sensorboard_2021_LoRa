@@ -1,10 +1,11 @@
 # -------------------------------------------------------------------------------
 # authors: Florian Stechmann, Saurabh Band, Malavika Unnikrishnan
-# date: 13.10.2022
+# date: 06.03.2023
 # function: Code for esp32 board with lora module and sd card reader.
 #           Needed SD Card format is W95 FAT32 (LBA).
 #           Same as main_scratch.py, Raw LoRa plus retransmission plus
-#           random back-off.
+#           random back-off. Includes mechanism for incorrect co2 value after
+#           10 min (1000 ppm) and correct value after another 30 min.
 # -------------------------------------------------------------------------------
 
 from machine import Pin, I2C, SoftSPI, Timer, UART
@@ -27,14 +28,19 @@ def measure_scd30(stat):
     """
     Takes CO2 reading.
     """
-    try:
-        if scd30.get_status_ready() == 1:
-            SENSOR_DATA[0] = round(scd30.read_measurement()[0], 2)
-            CONNECTION_VAR[stat] = 1
-    except Exception as e:
-        CONNECTION_VAR[stat] = 0
-        write_to_log("CO2 error: {}".format(e),
-                     str(time.mktime(time.localtime())))
+    global scd_val
+    if scd_val:
+        SENSOR_DATA[0] = 1000.00
+        CONNECTION_VAR[stat] = 1
+    else:
+        try:
+            if scd30.get_status_ready() == 1:
+                SENSOR_DATA[0] = round(scd30.read_measurement()[0], 2)
+                CONNECTION_VAR[stat] = 1
+        except Exception as e:
+            CONNECTION_VAR[stat] = 0
+            write_to_log("CO2 error: {}".format(e),
+                         str(time.mktime(time.localtime())))
 
 
 def measure_co(stat):
@@ -146,6 +152,15 @@ def cb_retrans(p):
     """
     global cb_retrans_done
     cb_retrans_done = True
+
+
+def cb_scd_val(p):
+    global scd_val, timer_scd
+    if scd_val:
+        scd_val = False
+    else:
+        scd_val = True
+        timer_scd.init(period=1800000, mode=Timer.ONE_SHOT, callback=cb_scd_val)
 
 
 def lora_scheduled(r_msg):
@@ -283,6 +298,9 @@ am_hum = 0
 # list for measurements values
 que = []
 
+# for sensor value incorrect experiment
+scd_val = False
+
 # init cb booleans
 cb_30_done = False
 cb_retrans_done = False
@@ -341,6 +359,7 @@ FUNC_VAR = (measure_scd30, measure_co, measure_o2, measure_bmp,
 # create Timers
 timer0 = Timer(0)
 timer1 = Timer(1)
+timer_scd = Timer(2)
 
 # sensor readings list init
 SENSOR_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -437,6 +456,8 @@ except Exception:
 # Timer for sending msgs with measurement values + timestamp + crc
 timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
 write_to_log("msg sending timer activated", str(time.mktime(time.localtime())))
+
+timer_scd.init(period=600000, mode=Timer.ONE_SHOT, callback=cb_scd_val)
 
 # set callback for LoRa (recv as scheduled IR)
 lora.on_recv(cb_lora)
