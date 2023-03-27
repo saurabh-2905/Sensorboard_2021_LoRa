@@ -12,3 +12,4 @@
 *.py#
 *.ods#
 *.odt#
+__pycache__
