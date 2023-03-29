@@ -73,25 +73,25 @@ def eval(pickle_file):
     prr_sn = (num_pkts_rx/num_pkts_sent) * 100
     # print('PRR of the sensor node:', prr_sn)
 
-    len(data_all) == (len(data[1]) + len(data[3]))
+    assert(len(data_all) == (len(data[1]) + len(data[3])))
 
-    ### filter hb signals
-    hb_pkts = []
-    data_pkts = []
-    board_index = [1,3]
+    # ### filter hb signals
+    # hb_pkts = []
+    # data_pkts = []
+    # board_index = [1,3]
 
-    for i in board_index:
-        each_board = data[i]
-        for d in each_board:
-            #print(d[0][0])
-            if d[0][0] == -1:
-                hb_pkts += [d]
-            else:
-                data_pkts += [d]
+    # for i in board_index:
+    #     each_board = data[i]
+    #     for d in each_board:
+    #         #print(d[0][0])
+    #         if d[0][0] == -1:
+    #             hb_pkts += [d]
+    #         else:
+    #             data_pkts += [d]
 
-    rssi_data = []
-    for d in data_pkts:
-        rssi_data += [d[3]]
+    rssi_data_gf = []
+    for d in data_all:
+        rssi_data_gf += [d[3]]
 
 
-    return(prr_sn, rssi_data)
+    return(prr_sn, rssi_data_gf)
