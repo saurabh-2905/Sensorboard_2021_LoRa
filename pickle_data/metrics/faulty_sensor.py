@@ -86,6 +86,18 @@ def eval(pickle_file):
     # print('Total pkts from PB:', len(data[1]))
     # print('First and last faulty packet:', faulty_packets[0][2], faulty_packets[-1][2])
 
+    ### PRR of the primary board (PB)
+    num_pkts_sent_pb = 0 
+    num_pkts_rx_pb = 0
+    packet_num_pb = []
+    for d in data[1]:
+        if d[2] < faulty_packets[0][2] or d[2] > faulty_packets[-1][2]:
+            packet_num_pb += [d[2]]
+            
+    num_pkts_rx_pb = len(packet_num_pb)
+    prr_pb = (num_pkts_rx_pb/num_pkts_sent) * 100    ### packets rx from only PB out of total packets sent by node
+    # print('PRR of the primary board:', prr_pb)
+
     ### efficiency of RB
     # how many faulty pkts detected?    how many lost packets detected
 
@@ -114,4 +126,4 @@ def eval(pickle_file):
     assert(len(lost_detected_pkts)+len(faulty_detected_pkts) == len(data_pkts))
     assert(len(data_pkts)+len(hb_pkts) == len(data[3]))
 
-    return(prr_sn, detection_rate)
+    return(prr_sn, prr_pb, detection_rate)
