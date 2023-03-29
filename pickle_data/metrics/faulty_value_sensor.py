@@ -66,7 +66,7 @@ def eval(pickle_file):
     num_pkts_sent = max(packet_num)
     num_pkts_rx = len(packet_num)
     prr_sn = (num_pkts_rx/num_pkts_sent) * 100
-    print('PRR of the sensor node:', prr_sn)
+    # print('PRR of the sensor node:', prr_sn)
 
     #### Efficiency of RB 
     ### total faulty packets
@@ -79,9 +79,9 @@ def eval(pickle_file):
             #print(d[2])
             faulty_packets += [d]
             
-    print('Total no. of faulty packets:', len(faulty_packets))
-    print('Total pkts from PB:', len(data[1]))
-    print('First and last faulty packet:', faulty_packets[0][2], faulty_packets[-1][2])
+    # print('Total no. of faulty packets:', len(faulty_packets))
+    # print('Total pkts from PB:', len(data[1]))
+    # print('First and last faulty packet:', faulty_packets[0][2], faulty_packets[-1][2])
             
 
     ### efficiency of RB
@@ -107,7 +107,7 @@ def eval(pickle_file):
             faulty_detected_pkts += [d]
 
     detection_rate = len(faulty_detected_pkts)/len(faulty_packets)*100
-    print('Detection rate for faulty Sensor:', detection_rate)
+    # print('Detection rate for faulty Sensor:', detection_rate)
 
     assert(len(lost_detected_pkts)+len(faulty_detected_pkts) == len(data_pkts))
     assert(len(data_pkts)+len(hb_pkts) == len(data[3]))

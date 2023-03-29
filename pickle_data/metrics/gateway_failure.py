@@ -71,7 +71,7 @@ def eval(pickle_file):
     num_pkts_sent = max(packet_num)
     num_pkts_rx = len(packet_num)
     prr_sn = (num_pkts_rx/num_pkts_sent) * 100
-    print('PRR of the sensor node:', prr_sn)
+    # print('PRR of the sensor node:', prr_sn)
 
     len(data_all) == (len(data[1]) + len(data[3]))
 

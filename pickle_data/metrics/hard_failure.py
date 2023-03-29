@@ -1,5 +1,6 @@
 import pickle
-import matplotlib.pyplot as plt
+import numpy as np
+
 
 def eval(pickle_file):
     '''
@@ -42,7 +43,7 @@ def eval(pickle_file):
 
     #### Checking the confidence interval (40s)
     data_all = data[primary_board_ind] + data[redundant_board_ind]
-    print(len(data_all))
+    # print(len(data_all))
 
     for d in data_all:
         if d[3]-d[2]>0:
@@ -58,69 +59,99 @@ def eval(pickle_file):
     pkts_lost_rb = 0
     pb_reset_count = 0
     rb_reset_count = 0
+    pkts_tx = []
+    pkts_tx_rb = []
+    hb_indicator = 0
+    # iterate over boards
     for i in board_index:
         each_board = data[i]
         if i == primary_board_ind:
             previous_id = 0
-            for d in each_board:
+            for d_i, d in enumerate(each_board):
                 # print(d[1])
                 if d[1] - previous_id > 1:
                     # print(d[1], previous_id)
                     pkts_lost_pb += (d[1] - previous_id - 1)
                 if d[1] - previous_id < 0:
                     pb_reset_count += 1
+                    pkts_tx += [previous_id]
                 previous_id = d[1]
+                if d_i == len(each_board) - 1:
+                    pkts_tx += [d[1]]
         if i == redundant_board_ind:
             previous_id = 0
             data_pkts_rb = []
             for d in each_board:
                 #print(d[0][0])
-                if d[5][0] == -1:
+                #indicate if the packet is heartbeat pkt (2 conditions depending upon pkt format)
+                if len(d) == 5:
+                    if d[1] == 0:
+                        hb_indicator = 1
+                    else:
+                        hb_indicator = 0
+                else:
+                    if d[5][0] == -1:
+                        hb_indicator = 1
+                    else:
+                        hb_indicator = 0
+                #seperate data and hb pkts        
+                if hb_indicator == 1:
                     hb_pkts += [d]
                 else:
                     # print(d[1])
+                    # check if pkts lost
                     if d[1] - previous_id > 1:
-                        if d[1] > 20 and d[1] < 47:
+                        # for redundant board,, only check after board has failed
+                        if d[1] > pkts_tx[0] :
                             # print(d[1], previous_id)
                             pkts_lost_rb += (d[1] - previous_id - 1)
+                    # check if board has restarted
                     if d[1] - previous_id < 0:
-                        pb_reset_count += 1
+                        rb_reset_count += 1
+                        pkts_tx_rb += [previous_id]
+                        break   # dont want o count pkt loss after pb is back online
                     data_pkts_rb += [d]
                     previous_id = d[1]
+                    # store the last packet sent by the board
+                    if d_i == len(each_board) - 1:
+                        pkts_tx_rb += [d[1]]
 
     ### PRR with Redundancy (PB+RB)
-    total_pkts = 47 + 22             ### last packet of redundant board and 2nd session of PB
-    total_pkts_lost = pkts_lost_pb+pkts_lost_rb
+    total_pkts = pkts_tx_rb[-1] + pkts_tx[-1]            ### last packet of redundant board and 2nd session of PB
+    total_pkts_lost = pkts_lost_pb+pkts_lost_rb          ### number of packets lost during tx
     prr_sn = ((total_pkts-total_pkts_lost)/total_pkts) * 100
-    print('PRR with Redundancy:', prr_sn)
+    # print('PRR with Redundancy:', prr_sn)
 
     ### PRR without Redundancy (PB)
-    prr_pb = ((20+22-pkts_lost_pb)/total_pkts) * 100
-    print('PRR without Redundancy:', prr_pb)
-
+    prr_pb = ((np.sum(pkts_tx)-pkts_lost_pb)/total_pkts) * 100
+    # print('PRR without Redundancy:', prr_pb)
+                        
     #### Efficiency of RB 
     # how many faulty pkts detected?    how many lost packets detected
 
-    hb_pkts = []
-    data_pkts = []
+    # hb_pkts = []
+    # data_pkts = []
 
-    for d in data[redundant_board_ind]:
-        #print(d[0][0])
-        if d[5][0] == -1:
-            hb_pkts += [d]
-        else:
-            data_pkts += [d]
+    # for d in data[redundant_board_ind]:
+    #     #print(d[0][0])
+    #     if d[5][0] == -1:
+    #         hb_pkts += [d]
+    #     else:
+    #         data_pkts += [d]
+            
+    # faulty_detected_pkts = []
+    # lost_detected_pkts = []
             
     faulty_detected_pkts = []
     lost_detected_pkts = []
             
-    for d in data_pkts:
-        if d[1] < 20 or d[1] > 47:   ### 20: last pkt by PB before failure, 47: last pkt by RB bfore resetting pkt count
+    for d in data_pkts_rb:
+        if d[1] < pkts_tx[0]:   ### 20: last pkt by PB before failure, 47: last pkt by RB bfore resetting pkt count
             lost_detected_pkts += [d]
         else:
             faulty_detected_pkts += [d]
 
-    detection_rate = len(faulty_detected_pkts)/(47-20)*100
-    print('Detection rate for hard failure:', detection_rate)
+    detection_rate = len(faulty_detected_pkts)/(pkts_tx_rb[0]-pkts_tx[0])*100
+    # print('Detection rate for hard failure:', detection_rate)
 
     return(prr_sn, prr_pb, detection_rate)
