@@ -95,3 +95,70 @@ def eval(pickle_file):
 
 
     return(prr_sn, rssi_data_gf)
+
+
+def eval_norm(pickle_file):
+    '''
+    pickle_file = path to the pickle file where data is stored (string)
+    return:
+        prr_sn = packet reception ratio of the node
+        rssi_data = list of rssi values of all pkts
+    '''
+
+    #### Average RSSI of regular gateway
+    # load data for gateway failure
+    with open("log_red2_red_1.pkl", "rb") as f:
+        data_sf = pickle.load(f)
+
+    print(len(data_sf[0]), len(data_sf[1]), len(data_sf[2]), len(data_sf[3]))
+    primary_board_ind = 1
+    redundant_board_ind = 2
+
+    data_format = ('board_id', 'pkt_no', 'Tx_time', 'reTx_time', 'RSSI')
+
+    exp_data = [data_sf]
+    data_all = []
+    for de in exp_data:
+        data = de[1] + de[2]
+        data_all.extend(data)
+    #data_all.extend(data_hf[1]+data_hf[2])
+
+    #assert(len(data_all) == ( len(data_hf[1])+len(data_hf[2]) + len(data_sf[1])+len(data_sf[3]) + len(data_svf[1])+len(data_svf[3]) )) 
+    assert(len(data_all) == ( len(data_sf[1])+len(data_sf[2]) )) 
+
+    ### filter hb signals
+    hb_pkts_sf = []
+    data_pkts_sf = []
+    board_index = [1,2]
+
+    for i in board_index:
+        each_board = data_sf[i]
+        for d in each_board:
+            print(d)
+            #print(d[0][0])
+            if d[1] == 0 and i == 2:  ### check hb indicator and board id
+                hb_pkts_sf += [d]
+            else:
+                data_pkts_sf += [d]
+
+
+    assert(len(hb_pkts_sf)+len(data_pkts_sf)==len(data_sf[1])+len(data_sf[2]))
+
+    ### PRR of the sesnor node (PB+RB)
+    packet_num_sf = []
+    num_pkts_sent_sf = 0 
+    num_pkts_rx_sf = 0
+    for d in data_pkts_sf:
+        if d[1] not in packet_num_sf:
+            packet_num_sf += [d[1]]
+    num_pkts_sent_sf = max(packet_num_sf)
+    num_pkts_rx_sf = len(packet_num_sf)
+    prr_sn_sf = (num_pkts_rx_sf/num_pkts_sent_sf) * 100
+    print('PRR of the sensor node:', prr_sn_sf)
+
+    #### rssi analysis
+    rssi_data_rest = []
+    for d in data_all:
+        rssi_data_rest += [d[4]]
+
+    return(prr_sn_sf, rssi_data_rest)
