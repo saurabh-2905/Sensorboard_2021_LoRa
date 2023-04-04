@@ -60,7 +60,7 @@ def eval(pickle_file):
             else:
                 data_pkts += [d]
 
-    ### PRR of the sesnor node (PB+RB)
+    ### Total packets sent
     packet_num = []
     num_pkts_sent = 0 
     num_pkts_rx = 0
@@ -69,7 +69,7 @@ def eval(pickle_file):
             packet_num += [d[2]]
     num_pkts_sent = max(packet_num)
     num_pkts_rx = len(packet_num)
-    prr_sn = (num_pkts_rx/num_pkts_sent) * 100
+    #prr_sn = (num_pkts_rx/num_pkts_sent) * 100    ## incorrect, considers faulty packets sent by pb
     # print('PRR of the sensor node:', prr_sn)
 
 
@@ -86,17 +86,32 @@ def eval(pickle_file):
     # print('Total pkts from PB:', len(data[1]))
     # print('First and last faulty packet:', faulty_packets[0][2], faulty_packets[-1][2])
 
-    ### PRR of the primary board (PB)
+    ###### extended version 03/04
+    ### PRR of the primary board (PB) and sensor node(PB+RB)
     num_pkts_sent_pb = 0 
     num_pkts_rx_pb = 0
     packet_num_pb = []
-    for d in data[1]:
-        if d[2] < faulty_packets[0][2] or d[2] > faulty_packets[-1][2]:
+
+    num_pkts_sent_rb = 0 
+    num_pkts_rx_rb = 0
+    packet_num_rb = []
+
+    for d in data[1]:   #pb
+        if d[2] < faulty_packets[0][2] or d[2] > faulty_packets[-1][2]:  ### consider onyl packets not faulty
             packet_num_pb += [d[2]]
+            
+    for d in data[3]:   #rb
+        if d[2] >= faulty_packets[0][2] or d[2] <= faulty_packets[-1][2]: ### take only packets during faulty data
+            if d[0][0] != -1:    # filter out hb
+                packet_num_rb += [d[2]]
             
     num_pkts_rx_pb = len(packet_num_pb)
     prr_pb = (num_pkts_rx_pb/num_pkts_sent) * 100    ### packets rx from only PB out of total packets sent by node
     # print('PRR of the primary board:', prr_pb)
+
+    num_pkts_rx_rb = len(packet_num_rb)
+    prr_sn = (num_pkts_rx_pb+num_pkts_rx_rb)/num_pkts_sent * 100
+    # print('PRR of the sensor node:', prr_sn)
 
     ### efficiency of RB
     # how many faulty pkts detected?    how many lost packets detected

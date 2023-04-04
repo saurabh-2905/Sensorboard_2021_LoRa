@@ -65,7 +65,7 @@ def eval(pickle_file):
             packet_num += [d[2]]
     num_pkts_sent = max(packet_num)
     num_pkts_rx = len(packet_num)
-    prr_sn = (num_pkts_rx/num_pkts_sent) * 100
+    # prr_sn = (num_pkts_rx/num_pkts_sent) * 100     ## incorrect, considers faulty packets sent by pb
     # print('PRR of the sensor node:', prr_sn)
 
     #### Efficiency of RB 
@@ -87,14 +87,28 @@ def eval(pickle_file):
     num_pkts_sent_pb = 0 
     num_pkts_rx_pb = 0
     packet_num_pb = []
-    for d in data[1]:
+
+    num_pkts_sent_rb = 0 
+    num_pkts_rx_rb = 0
+    packet_num_rb = []
+
+    for d in data[1]:  ##pb
         if d[2] < faulty_packets[0][2] or d[2] > faulty_packets[-1][2]:
             packet_num_pb += [d[2]]
+            
+    for d in data[3]:   #rb
+        if d[2] >= faulty_packets[0][2] or d[2] <= faulty_packets[-1][2]: ### take only packets during faulty data
+            if d[0][0] != -1:    # filter out hb
+                packet_num_rb += [d[2]]
             
     num_pkts_rx_pb = len(packet_num_pb)
     prr_pb = (num_pkts_rx_pb/num_pkts_sent) * 100    ### packets rx from only PB out of total packets sent by node
     # print('PRR of the primary board:', prr_pb)
-            
+
+    num_pkts_rx_rb = len(packet_num_rb)
+    prr_sn = (num_pkts_rx_pb+num_pkts_rx_rb)/num_pkts_sent * 100
+    # print('PRR of the sensor node:', prr_sn)
+                
 
     ### efficiency of RB
     # how many faulty pkts detected?    how many lost packets detected
