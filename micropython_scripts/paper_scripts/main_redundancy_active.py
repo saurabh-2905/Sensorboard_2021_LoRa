@@ -523,7 +523,7 @@ except Exception:
 timer0.init(period=60000, mode=Timer.PERIODIC, callback=cb_hb)
 
 # period = tx interval of primary board + 1 (for edge cases)
-timer_redun.init(period=40000, mode=Timer.ONE_SHOT, callback=cb_redundancy)
+timer_redun.init(period=20000, mode=Timer.ONE_SHOT, callback=cb_redundancy)
 
 # set callback for LoRa (recv as scheduled IR)
 lora.on_recv(cb_lora)
