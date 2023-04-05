@@ -70,17 +70,23 @@ print(hf_dr, fs_dr, fvs_dr)
 barWidth = 0.2
 data_plot = [[hf_prr, fs_prr, fvs_prr],
         [hf_prr_pb, fs_prr_pb, fvs_prr_pb]]
+data_plot_mac = [[5, 20, 12],
+                 [8,12, 5]]
 fig = plt.subplots(figsize =(12, 8))
 
 # Set position of bar on X axis
-br1 = np.arange(len(data_plot[0]))
-br2 = [x + barWidth for x in br1]
+br1 = np.arange(len(data_plot[0]))     ## with rb
+br2 = [x + barWidth for x in br1]       ## without rb
 
 # Make the plot
-plt.bar(br1, data_plot[0], color ='b', width = barWidth,
+plt.bar(br1, data_plot[0], color ='#063970', width = barWidth,
         edgecolor ='grey', label ='w/ redundancy')
-plt.bar(br2, data_plot[1], color ='r', width = barWidth,
+plt.bar(br1, data_plot_mac[0], color ='#15710D', width = barWidth,
+        edgecolor ='grey', label ='mac', bottom=data_plot[0])
+plt.bar(br2, data_plot[1], color ='#8C0909', width = barWidth,
         edgecolor ='grey', label ='w/o redundancy')
+plt.bar(br2, data_plot_mac[1], color ='#15710D', width = barWidth,
+        edgecolor ='grey', bottom=data_plot[1])
 
 # Adding Xticks
 plt.xlabel('Failure Secnarios', fontsize = 15)
@@ -112,7 +118,7 @@ fig = plt.subplots(figsize =(12, 8))
 br1 = np.arange(len(data_plot))
 
 # Make the plot
-plt.bar(br1, data_plot, color ='b', width = barWidth,
+plt.bar(br1, data_plot, color ='#e28743', width = barWidth,
         edgecolor ='grey',)
 
 # Adding Xticks
