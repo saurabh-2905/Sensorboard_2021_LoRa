@@ -291,9 +291,9 @@ cb_lora_recv = False
 # initial msg sending intervals
 # select time randomly with steps of 1000ms, because the
 # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-msg_interval = random.randrange(10000, 15000, 500)
+msg_interval = random.randrange(20000, 30000, 500)
 # select random time interval with step size of 1 sec
-retx_interval = 4000
+retx_interval = 6000
 
 # init process variables
 retransmit_count = 0
@@ -542,7 +542,7 @@ while True:
                 if random.random() >= 0.4:
                     # select time randomly with steps of 1000ms, because the
                     # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-                    msg_interval = random.randrange(10000, 15000, 500)
+                    msg_interval = random.randrange(20000, 30000, 500)
                     # select random time interval with step size of 1 sec
                     # retx_interval = random.randrange(2000, 10000, 1000)
             except Exception as e:
@@ -559,7 +559,7 @@ while True:
                     # add retransmission timestamp
                     r_time = time.mktime(time.localtime())
                     # error here wrong unpacking format
-                    r_msg = ustruct.unpack(">13f2H2IL", que[0][0][:-8])
+                    r_msg = ustruct.unpack(">13f2H2I3L", que[0][0][:-8])
                     r_msg = ustruct.pack(">13f2H2IL", r_msg)
                     r_msg += ustruct.pack(">L", r_time)
                     r_msg += ustruct.pack(">L", crc32(0, r_msg, 72))

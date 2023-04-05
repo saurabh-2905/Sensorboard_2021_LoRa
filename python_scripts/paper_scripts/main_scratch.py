@@ -383,8 +383,8 @@ while True:
             values = struct.unpack(_pkng_frmt, recv_msg[:-12])
             id_received = values[16]
             packet_no_received = values[15]
-            timestamp_sent = list(struct.unpack(">L", recv_msg[-8:-4]))[0]
-            timestamp_retr = list(struct.unpack(">L", recv_msg[-12:-8]))[0]
+            timestamp_sent = list(struct.unpack(">L", recv_msg[-8:-4]))[0]  # retx
+            timestamp_retr = list(struct.unpack(">L", recv_msg[-12:-8]))[0]  # tx
             receiver_timestamp = time.localtime()
             rx_datetime = create_timestamp(receiver_timestamp)
 

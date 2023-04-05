@@ -579,7 +579,7 @@ while True:
                 if que != []:
                     # add retransmission timestamp
                     r_time = time.mktime(time.localtime())
-                    r_msg = ustruct.unpack(">13f2H2IL", que[0][0][:-8])
+                    r_msg = ustruct.unpack(">13f2H2I3L", que[0][0][:-8])
                     r_msg = ustruct.pack(">13f2H2IL", r_msg)
                     r_msg += ustruct.pack(">L", r_time)
                     r_msg += ustruct.pack(">L", crc32(0, r_msg, 72))

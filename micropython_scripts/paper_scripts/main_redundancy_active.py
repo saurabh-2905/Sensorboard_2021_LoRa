@@ -370,9 +370,9 @@ redun_timer_reset = False  # to indicate if timer complete or packet received
 # initial msg sending intervals
 # select time randomly with steps of 1000ms, because the
 # max on air time is 123ms and 390ms for SF7 and SF9 resp.
-msg_interval = random.randrange(8000, 12000, 130)
+msg_interval = random.randrange(8000, 12000, 130)  # not relevant
 # select random time interval with step size of 1 sec
-retx_interval = 3000
+retx_interval = 3000  # not relevant
 
 MESSAGE_LENGTH = 76
 
@@ -523,7 +523,7 @@ except Exception:
 timer0.init(period=60000, mode=Timer.PERIODIC, callback=cb_hb)
 
 # period = tx interval of primary board + 1 (for edge cases)
-timer_redun.init(period=20000, mode=Timer.ONE_SHOT, callback=cb_redundancy)
+timer_redun.init(period=35000, mode=Timer.ONE_SHOT, callback=cb_redundancy)
 
 # set callback for LoRa (recv as scheduled IR)
 lora.on_recv(cb_lora)
@@ -546,7 +546,7 @@ while True:
         c_data = tmp
 
     if redun_timer_reset:
-        timer_redun.init(period=40000,
+        timer_redun.init(period=35000,
                          mode=Timer.ONE_SHOT, callback=cb_redundancy)
         redun_timer_reset = False
         print("redun timer reset")
@@ -645,7 +645,7 @@ while True:
                              str(time.mktime(time.localtime())))
             except Exception:
                 write_to_log("error limits broken ", str(current_time))
-            timer_redun.init(period=40000,
+            timer_redun.init(period=35000,
                              mode=Timer.ONE_SHOT, callback=cb_redundancy)
             timer0.deinit()
             timer0.init(period=60000, mode=Timer.PERIODIC, callback=cb_hb)
@@ -659,7 +659,7 @@ while True:
                 if que != []:
                     # add retransmission timestamp
                     r_time = time.mktime(time.localtime())
-                    r_msg = ustruct.unpack(">13f2H2IL", que[0][0][:-8])
+                    r_msg = ustruct.unpack(">13f2H2I3L", que[0][0][:-8])
                     r_msg = ustruct.pack(">13f2H2IL", r_msg)
                     r_msg += ustruct.pack(">L", r_time)
                     r_msg += ustruct.pack(">L", crc32(0, r_msg, 72))
