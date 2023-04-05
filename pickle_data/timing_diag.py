@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # load data for sensor value fault
-with open("log_exp_svf1.pkl", "rb") as f:
+with open("log_exp_svf_re2.pkl", "rb") as f:
     data = pickle.load(f)
 
 ### check if all packets belong to same board
