@@ -543,7 +543,7 @@ while True:
                 msg += ustruct.pack(">L", sending_time)
                 msg += ustruct.pack(">L", sending_time)
                 msg += ustruct.pack(">L", crc32(0, msg, 72))
-                add_to_que(msg, current_time)
+                add_to_que(msg, sending_time)
                 lora.send(que[0][0])
                 lora.recv()
                 if not LIMITS_BROKEN:
@@ -580,7 +580,12 @@ while True:
                     # add retransmission timestamp
                     r_time = time.mktime(time.localtime())
                     r_msg = ustruct.unpack(">13f2H2I3L", que[0][0][:-8])
-                    r_msg = ustruct.pack(">13f2H2IL", r_msg)
+                    r_msg = ustruct.pack(">13f2H2IL", r_msg[0], r_msg[1],
+                                         r_msg[2], r_msg[3], r_msg[4], r_msg[5],
+                                         r_msg[6], r_msg[7], r_msg[8], r_msg[9],
+                                         r_msg[10], r_msg[11], r_msg[12],
+                                         r_msg[13], r_msg[14], r_msg[15],
+                                         r_msg[16], r_msg[17])
                     r_msg += ustruct.pack(">L", r_time)
                     r_msg += ustruct.pack(">L", crc32(0, r_msg, 72))
                     lora.send(r_msg)
