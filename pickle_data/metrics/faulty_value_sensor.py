@@ -132,7 +132,7 @@ def eval(pickle_file):
         else:
             faulty_detected_pkts += [d]
 
-    detection_rate = len(faulty_detected_pkts)/len(faulty_packets)*100
+    detection_rate = len(faulty_detected_pkts)/(faulty_packets[-1][2]-faulty_packets[0][2]+1)*100
     # print('Detection rate for faulty Sensor:', detection_rate)
 
     assert(len(lost_detected_pkts)+len(faulty_detected_pkts) == len(data_pkts))
