@@ -89,12 +89,14 @@ br1 = np.arange(len(data_plot[0]))     ## with rb
 br2 = [x + barWidth for x in br1]       ## without rb
 
 # Make the plot
-plt.bar(br1, data_plot[0], color ='#063970', width = barWidth,
+rects1 = plt.bar(br1, data_plot[0], color ='#063970', width = barWidth,
         edgecolor ='grey', label ='w/ redundancy')
+plt.bar_label(rects1, fontsize=18)
 # plt.bar(br1, data_plot_mac[0], color ='#15710D', width = barWidth,
 #         edgecolor ='grey', label ='mac', bottom=data_plot[0])
-plt.bar(br2, data_plot[1], color ='#8C0909', width = barWidth,
-        edgecolor ='grey', label ='w/o redundancy')
+rects2 = plt.bar(br2, data_plot[1], color ='#8C0909', width = barWidth,
+        edgecolor ='grey', label ='w/o redundancy',)
+plt.bar_label(rects2, fontsize=18)
 # plt.bar(br2, data_plot_mac[1], color ='#15710D', width = barWidth,
 #         edgecolor ='grey', bottom=data_plot[1])
 
@@ -103,7 +105,8 @@ plt.xlabel('Failure Scenarios', fontsize = 25)
 plt.ylabel('PRR', fontsize = 25)
 plt.xticks([r + barWidth/2 for r in range(len(data_plot[0]))],
         ['HF', 'SF1', 'SF2'], fontsize=20)
-plt.yticks(np.arange(0, 100, 10), fontsize=20)
+plt.yticks(np.arange(0, 110, 10), fontsize=20)
+
 
 # ax = fig.add_axes([0,0,1,1])
 # ax.bar(X + 0.00, data[0], color = 'b', width = 0.25)
@@ -126,17 +129,19 @@ br1 = np.arange(len(data_plot[0]))     ## with rb
 br2 = [x + barWidth for x in br1]       ## without rb
 
 # Make the plot
-plt.bar(br1, data_plot[0], color ='#063970', width = barWidth,
+rects3 = plt.bar(br1, data_plot[0], color ='#063970', width = barWidth,
         edgecolor ='grey', label ='w/ MAC')
-plt.bar(br2, data_plot[2], color ='#8C0909', width = barWidth,
+plt.bar_label(rects3, fontsize=18)
+rects4 = plt.bar(br2, data_plot[2], color ='#8C0909', width = barWidth,
         edgecolor ='grey', label ='w/o MAC')
+plt.bar_label(rects4, fontsize=18)
 
 # Adding Xticks
 plt.xlabel('Failure Scenarios', fontsize = 25)
 plt.ylabel('PRR', fontsize = 25)
 plt.xticks([r + barWidth/2 for r in range(len(data_plot[0]))],
         ['HF', 'SF1', 'SF2'], fontsize=20)
-plt.yticks(np.arange(0, 100, 10), fontsize=20)
+plt.yticks(np.arange(0, 110, 10), fontsize=20)
 
 plt.legend(fontsize=20)
 plt.show()
@@ -151,15 +156,16 @@ fig = plt.subplots(figsize =(12, 8))
 br1 = np.arange(len(data_plot))
 
 # Make the plot
-plt.bar(br1, data_plot, color ='#063970' , width = barWidth,
+rects5 = plt.bar(br1, data_plot, color ='#063970' , width = barWidth,
         edgecolor ='grey',)
+plt.bar_label(rects5, fontsize=18)
 
 # Adding Xticks
-plt.xlabel('Failure Scenarios', )
+plt.xlabel('Failure Scenarios', fontsize = 25)
 plt.ylabel('Detection Rate', fontsize = 25)
 plt.xticks([r for r in range(len(data_plot))],
         ['HF', 'SF1', 'SF2'], fontsize=20)
-plt.yticks(np.arange(0, 100, 10), fontsize=20)
+plt.yticks(np.arange(0, 110, 10), fontsize=20)
 plt.show()
 
 
