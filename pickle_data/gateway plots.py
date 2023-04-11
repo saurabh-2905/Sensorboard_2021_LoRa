@@ -28,9 +28,10 @@ fig = plt.figure(figsize =(10, 7))
 # Creating plot
 plt.boxplot([rssi_data_rest, rssi_gf])
 # plt.xlabel('Time (seconds)', fontsize = 15)
-plt.ylabel('RSSI', fontsize = 15)
+plt.ylabel('RSSI (dbm)', fontsize = 25)
 plt.xticks([r for r in range(1,3)],
-        ['Normal GW', 'Backup GW'])
+        ['Normal GW', 'Backup GW'], fontsize = 20)
+plt.yticks(fontsize = 20)
 # show plot
 plt.show()
 
@@ -52,7 +53,7 @@ plt.bar(br1, data_plot, color ='b', width = barWidth,
 #         edgecolor ='grey', label ='w/o redundancy')
 
 # Adding Xticks
-plt.ylabel('PRR', fontsize = 15)
+plt.ylabel('PRR', fontsize = 25)
 plt.xticks([r for r in range(len(data_plot))],
         ['Normal GW', 'Backup GW'])
 plt.yticks(np.arange(0, 100, 10))

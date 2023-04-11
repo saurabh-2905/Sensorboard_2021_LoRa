@@ -6,8 +6,12 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 
+
+###files
+#for no noise: log_exp_svf_re1.pkl
+# for actual: log_exp_svf1.pkl
 # load data for sensor value fault
-with open("log_exp_svf_re2.pkl", "rb") as f:
+with open("log_exp_svf1.pkl", "rb") as f:
     data = pickle.load(f)
 
 ### check if all packets belong to same board
@@ -85,10 +89,11 @@ plt.scatter(x_faulty_pb, y_faulty_pb, label='faulty data')
 plt.scatter(x_rb, y_rb, label='backup data')
 plt.ylim((7,11))
 plt.grid(True)
-plt.xlabel('Time (seconds)', fontsize = 15)
-plt.ylabel('Packet reception of resp. boards', fontsize = 15)
-plt.yticks([10,8],['Primary Board', 'Redundant Board'], rotation=90,)
-plt.legend()
+plt.xlabel('Time (seconds)', fontsize = 25)
+plt.ylabel('Packet reception of resp. boards', fontsize = 25)
+plt.yticks([10,8],['Primary Board', 'Redundant Board'], rotation=90, fontsize=20)
+plt.xticks(fontsize=20)
+plt.legend(fontsize=20)
 
 plt.show()
 
