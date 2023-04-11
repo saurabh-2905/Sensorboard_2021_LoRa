@@ -441,7 +441,7 @@ try:
     AM2301_3 = AM2301(AM2301_3_ADRR)
     write_to_log("AM3 initialized", str(time.mktime(time.localtime())))
 except Exception:
-    CONNECTION_A3 = 0
+    CONNxECTION_A3 = 0
     write_to_log("AM3 failed", str(time.mktime(time.localtime())))
 
 try:
@@ -579,7 +579,7 @@ while True:
                 if que != []:
                     # add retransmission timestamp
                     r_time = time.mktime(time.localtime())
-                    r_msg = ustruct.unpack(">13f2H2I3L", que[0][0][:-8])
+                    r_msg = ustruct.unpack(">13f2H2IL", que[0][0][:-8])
                     r_msg = ustruct.pack(">13f2H2IL", r_msg[0], r_msg[1],
                                          r_msg[2], r_msg[3], r_msg[4], r_msg[5],
                                          r_msg[6], r_msg[7], r_msg[8], r_msg[9],

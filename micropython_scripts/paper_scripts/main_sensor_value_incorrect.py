@@ -160,7 +160,7 @@ def cb_scd_val(p):
         scd_val = False
     else:
         scd_val = True
-        timer_scd.init(period=1800000, mode=Timer.ONE_SHOT, callback=cb_scd_val)
+        timer_scd.init(period=1200000, mode=Timer.ONE_SHOT, callback=cb_scd_val)
 
 
 def lora_scheduled(r_msg):
@@ -457,7 +457,8 @@ except Exception:
 timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
 write_to_log("msg sending timer activated", str(time.mktime(time.localtime())))
 
-timer_scd.init(period=600000, mode=Timer.ONE_SHOT, callback=cb_scd_val)
+timer_scd.init(period=3
+               00000, mode=Timer.ONE_SHOT, callback=cb_scd_val)
 
 # set callback for LoRa (recv as scheduled IR)
 lora.on_recv(cb_lora)
@@ -579,7 +580,7 @@ while True:
                 if que != []:
                     # add retransmission timestamp
                     r_time = time.mktime(time.localtime())
-                    r_msg = ustruct.unpack(">13f2H2I3L", que[0][0][:-8])
+                    r_msg = ustruct.unpack(">13f2H2IL", que[0][0][:-8])
                     r_msg = ustruct.pack(">13f2H2IL", r_msg[0], r_msg[1],
                                          r_msg[2], r_msg[3], r_msg[4], r_msg[5],
                                          r_msg[6], r_msg[7], r_msg[8], r_msg[9],
