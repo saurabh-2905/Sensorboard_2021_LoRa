@@ -66,22 +66,45 @@ import matplotlib.pyplot as plt
 
 #### expected values based on single exp
 
-prr_sn_exp = [99.00, 73.52, 74.21]
-prr_pb_exp = [47.00, 41.17, 40.00]
-dr_exp = [70.96, 40.90, 40.10]
-prr_without_mac = [85.71, 47.05, 48.01]
+# prr_sn_exp = [99.00, 73.52, 74.21]
+# prr_pb_exp = [47.00, 41.17, 40.00]
+# dr_exp = [70.96, 40.90, 40.10]
+# prr_without_mac = [85.71, 47.05, 48.01]
 
-[hf_prr, fs_prr, fvs_prr] = prr_sn_exp
-[hf_prr_pb, fs_prr_pb, fvs_prr_pb] = prr_pb_exp
-[hf_dr, fs_dr, fvs_dr] = dr_exp
+# [hf_prr, fs_prr, fvs_prr] = prr_sn_exp
+# [hf_prr_pb, fs_prr_pb, fvs_prr_pb] = prr_pb_exp
+# [hf_dr, fs_dr, fvs_dr] = dr_exp
+
+### manually calculated results
+hf_prr = np.mean([80.76, 71.15, 69.09])
+hf_prr_pb = np.mean([38.46, 40.38, 40.0])
+fs_prr = np.mean([60.86, 62.68, 62.68])   ##edit
+fs_prr_pb = np.mean([34.78, 31.34, 31.34])  ##edit
+fvs_prr = np.mean([61.76, 63.63, 69.11])
+fvs_prr_pb = np.mean([32.35, 27.27, 32.35])
+
+hf_dr = np.mean([70.96, 70.96, 65.625])
+fs_dr = np.mean([40.0, 45.65, 45.65])   ##edit
+fvs_dr = np.mean([43.47, 54.54, 54.34])
+
+hfwmac = np.mean([69.23, 71.15, 69.09])
+sfwmac = np.mean([40.57, 52.53, 52.53])  ##edit
+svfwmac = np.mean([50.0, 56.06, 54.41])
+
+prr_without_mac = [hfwmac, sfwmac, svfwmac]
+
+print(hf_prr, fs_prr, fvs_prr)
+print(hf_prr_pb, fs_prr_pb, fvs_prr_pb)
+print(hf_dr, fs_dr, fvs_dr)
+
+
 ##### PRR plot ########
 # set width of bar
 barWidth = 0.2
 data_plot = [[hf_prr, fs_prr, fvs_prr],
         [hf_prr_pb, fs_prr_pb, fvs_prr_pb],
         prr_without_mac]
-data_plot_mac = [[5, 20, 12],
-                 [8,12, 5]]
+
 fig = plt.subplots(figsize =(12, 8))
 
 # Set position of bar on X axis
@@ -92,13 +115,9 @@ br2 = [x + barWidth for x in br1]       ## without rb
 rects1 = plt.bar(br1, data_plot[0], color ='#063970', width = barWidth,
         edgecolor ='grey', label ='w/ redundancy')
 plt.bar_label(rects1, fontsize=18)
-# plt.bar(br1, data_plot_mac[0], color ='#15710D', width = barWidth,
-#         edgecolor ='grey', label ='mac', bottom=data_plot[0])
 rects2 = plt.bar(br2, data_plot[1], color ='#8C0909', width = barWidth,
         edgecolor ='grey', label ='w/o redundancy',)
 plt.bar_label(rects2, fontsize=18)
-# plt.bar(br2, data_plot_mac[1], color ='#15710D', width = barWidth,
-#         edgecolor ='grey', bottom=data_plot[1])
 
 # Adding Xticks
 plt.xlabel('Failure Scenarios', fontsize = 25)
