@@ -160,7 +160,7 @@ def cb_scd_val(p):
         scd_val = False
     else:
         scd_val = True
-        timer_scd.init(period=1200000, mode=Timer.ONE_SHOT, callback=cb_scd_val)
+        timer_scd.init(period=1800000, mode=Timer.ONE_SHOT, callback=cb_scd_val)
 
 
 def lora_scheduled(r_msg):
@@ -441,7 +441,7 @@ try:
     AM2301_3 = AM2301(AM2301_3_ADRR)
     write_to_log("AM3 initialized", str(time.mktime(time.localtime())))
 except Exception:
-    CONNECTION_A3 = 0
+    CONNxECTION_A3 = 0
     write_to_log("AM3 failed", str(time.mktime(time.localtime())))
 
 try:
@@ -457,8 +457,7 @@ except Exception:
 timer0.init(period=msg_interval, mode=Timer.ONE_SHOT, callback=cb_30)
 write_to_log("msg sending timer activated", str(time.mktime(time.localtime())))
 
-timer_scd.init(period=3
-               00000, mode=Timer.ONE_SHOT, callback=cb_scd_val)
+timer_scd.init(period=600000, mode=Timer.ONE_SHOT, callback=cb_scd_val)
 
 # set callback for LoRa (recv as scheduled IR)
 lora.on_recv(cb_lora)
