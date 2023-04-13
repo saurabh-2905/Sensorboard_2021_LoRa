@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------------
 # authors: Florian Stechmann, Saurabh Band, Malavika Unnikrishnan
-# date: 13.10.2022
+# date: 13.04.2023
 # function: Code for esp32 board with lora module and sd card reader.
 #           Needed SD Card format is W95 FAT32 (LBA).
 #           Same as main_scratch.py, Raw LoRa plus retransmission plus
@@ -461,14 +461,14 @@ while True:
                 # readings for CO2, CO, O2 and pressure are taken.
                 micropython.schedule(func_call, i)
                 if not THRESHOLDS[i][0] <= SENSOR_DATA[i] <= THRESHOLDS[i][1]:
-                    LIMITS_BROKEN = 0
+                    LIMITS_BROKEN = 1
             else:
                 # AM2301 readings (involves 2 values)
                 micropython.schedule(func_call, i)
                 if not THRESHOLDS[4][0] <= am_temp <= THRESHOLDS[4][1]:
-                    LIMITS_BROKEN = 0
+                    LIMITS_BROKEN = 1
                 if not THRESHOLDS[4][2] <= am_hum <= THRESHOLDS[4][3]:
-                    LIMITS_BROKEN = 0
+                    LIMITS_BROKEN = 1
                 SENSOR_DATA[j] = am_temp
                 SENSOR_DATA[j+1] = am_hum
                 j += 2
@@ -502,11 +502,19 @@ while True:
     if LORA_ESTABLISHED:
         if LIMITS_BROKEN:  # sends imidiately if threshold limits are broken
             try:
-                add_to_que(msg, current_time)
+                sending_time = time.mktime(time.localtime())
+                # include sending timestamp twice; 1st timestamp for actual
+                # sending time, 2nd for calculation of confidence interval.
+                # 2nd timestamp is replaced with retransmitting timestamp
+                # in case of retransmission
+                msg += ustruct.pack(">L", sending_time)
+                msg += ustruct.pack(">L", sending_time)
+                msg += ustruct.pack(">L", crc32(0, msg, 72))
+                add_to_que(msg, sending_time)
                 lora.send(msg)
                 lora.recv()
                 packet_no += 1
-                write_to_log("PKT {} sent, Limits broken".format(packet_no),
+                write_to_log("Limits broken",
                              str(time.mktime(time.localtime())))
             except Exception as e:
                 write_to_log("error limits broken: {}".format(e),
@@ -527,7 +535,7 @@ while True:
                 lora.recv()
                 if not LIMITS_BROKEN:
                     packet_no += 1
-                write_to_log("PKT {} sent".format(packet_no),
+                write_to_log("PKT sent",
                              str(time.mktime(time.localtime())))
                 start_time = current_time
                 timer1.init(period=retx_interval,
