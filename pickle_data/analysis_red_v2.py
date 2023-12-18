@@ -4,7 +4,7 @@ import pickle
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-with open("log_exp_svf_re_re3.pkl", "rb") as f:
+with open("log_exp_red_re3.pkl", "rb") as f:
     data = pickle.load(f)
 
 pb = data[1]

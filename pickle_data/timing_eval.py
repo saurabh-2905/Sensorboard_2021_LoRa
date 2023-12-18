@@ -81,21 +81,21 @@ for d in redundant_plotdata:
 
 fig = plt.subplots(figsize =(20, 8))
 
-# Set position of bar on X axis
-#x_data = np.arange(primary_plotdata[-1][0])
+# define x ticks
+xticks = np.arange(0, 1800, 20)
 
-plt.scatter(x_correct_pb, y_correct_pb, label='correct data')
-plt.scatter(x_faulty_pb, y_faulty_pb, label='faulty data')
+plt.scatter(x_correct_pb, y_correct_pb, label='data')
 plt.scatter(x_rb, y_rb, label='backup data')
 plt.ylim((7,11))
 plt.grid(True)
+#plt.xticks(xticks, fontsize=20, rotation=90)
+plt.xticks(xticks, fontsize=20)
 plt.xlabel('Time (seconds)', fontsize = 25)
 plt.ylabel('Packet reception of resp. boards', fontsize = 25)
 plt.yticks([10,8],['Primary Board', 'Redundant Board'], rotation=90, fontsize=20)
-plt.xticks(fontsize=20)
 plt.legend(fontsize=20)
+ax = plt.gca().get_xticklabels()
+plt.setp(ax, visible=False)
+plt.setp(ax[::2], visible=True)
 
 plt.show()
-
-
-

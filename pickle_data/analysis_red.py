@@ -4,7 +4,7 @@ import pickle
 import matplotlib.pyplot as plt
 
 # load data
-with open("log_red2.pkl", "rb") as f:
+with open("log_exp_red_re3.pkl", "rb") as f:
     data = pickle.load(f)
 
 
@@ -124,17 +124,14 @@ for i in range(len(red_xdata)):
 # plot data (or don't)
 plot = 1
 if plot:
-    plt.rcParams.update({'font.size': 14})
-    plt.rcParams["font.family"] = "Times New Roman"
-
     fig, (ax1, ax2) = plt.subplots(2, 1)
     ax1.grid(which='both')
     ax1.set_xlim(0, 3000)
     ax1.set_xlabel("Time (seconds)")
     ax1.set_title("Primary Board", fontsize=14)
-    u_w, = ax1.plot(faulty_xdata, faulty_ydata, '+', color="green",
+    u_w, = ax1.plot(faulty_xdata, faulty_ydata, '.', color="green",
                     label="Working")
-    u_nw, = ax1.plot(faulty2_xdata, faulty2_ydata, '+', color="red",
+    u_nw, = ax1.plot(faulty2_xdata, faulty2_ydata, '.', color="red",
                      label="Not working")
     ax1.legend(bbox_to_anchor=(0.5, -0.4), loc='lower center', ncol=2, fontsize=11)
     ax1.invert_yaxis()
@@ -144,9 +141,9 @@ if plot:
     ax2.set_xlim(0, 3000)
     ax2.set_xlabel("Time (seconds)")
     ax2.set_title("Redundant Board", fontsize=14)
-    l_hb, = ax2.plot(hb_xdata, hb_ydata, 'x', color="red",
+    l_hb, = ax2.plot(hb_xdata, hb_ydata, '.', color="red",
                      label="Heartbeat received")
-    l_pr, = ax2.plot(red_xdata, red_ydata, 'x', color="green",
+    l_pr, = ax2.plot(red_xdata, red_ydata, '.', color="green",
                      label="Packet received")
     ax2.legend(bbox_to_anchor=(0.5, -0.4), ncol=2, loc="lower center",  fontsize=11)
     ax2.set_yticklabels(["Heartbeat\nreceived", "Packet\nreceived"])
